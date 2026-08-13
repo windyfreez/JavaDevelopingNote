@@ -68,7 +68,7 @@ private UserDao userDao = new UserDaoImpl();
 //后续代码直接调用UserDao类当中的方法和return值
 ```
 
-### 1.IOC和DI
+### 1.Spring IOC和DI
 
 **然而在实际项目开发中，常常遵循“高内聚、低耦合”的软件设计原则**，
 我们常常省略此种面向接口编程的耦合方法，转而用IOC和DI原理，将项目当中的类交给他们来进行耦合处理
@@ -130,135 +130,6 @@ Bean对象：IOC当中创建管理的对象，称之为Bean。
 - **singleton**：单例（默认），整个Spring容器里只有一个实例
 - **prototype**：多例，每次获取都创建新对象
 - **request/session/application**：Web环境下，分别对应一次请求、一次会话、ServletContext生命周期
-
-### AOP面向切面编程详解（面试高频）
-
-**一句话定义**：AOP（面向切面编程）用于将日志、事务、权限等重复代码抽取出来，在不修改原有代码的情况下对方法进行增强。
-
-**核心概念速记：**
-
-* **Aspect（切面）**：在哪干 + 干什么（封装了通知和切入点的类）
-* **JoinPoint（连接点）**：程序执行过程中的任意位置，Spring中通常指方法
-* **Pointcut（切入点）**：匹配连接点的表达式，指定对哪些方法做增强
-* **Advice（通知）**：具体的增强动作
-* **Target（目标对象）**：被代理/被增强的原始对象
-
-**AOP常用注解：**
-
-| 注解 | 作用 |
-|---|---|
-| **@Aspect** | 声明这是一个切面类 |
-| **@Before** | 前置通知，目标方法执行前运行 |
-| **@After** | 后置通知，目标方法执行后运行（无论是否异常都会执行） |
-| **@AfterReturning** | 返回后通知，目标方法正常返回后运行 |
-| **@AfterThrowing** | 异常通知，目标方法抛出异常后运行 |
-| **@Around** | 环绕通知，包裹目标方法，性能统计最常用 |
-
-**Advice（通知）类型速记：**
-
-* **@Before**：方法执行前（如权限校验）
-* **@After**：方法执行后（如资源释放）
-* **@AfterReturning**：方法成功返回后（如记录正常日志）
-* **@AfterThrowing**：方法抛异常后（如记录异常日志）
-* **@Around**：环绕，方法前后都能干（如计算执行时间）
-
-**AOP实战：自动填充createTime/updateTime/createUser/updateUser**
-
-```java
-//步骤一：自定义注解，标记需要自动填充的方法
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface AutoFill {
-    //数据库操作类型：INSERT 或 UPDATE
-    OperationType value();
-}
-
-//步骤二：定义操作类型枚举
-public enum OperationType {
-    INSERT,
-    UPDATE
-}
-
-//步骤三：实体类基类，抽取公共字段（实际开发中实体类继承它）
-@Data
-public class BaseEntity {
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
-    private Long createUser;
-    private Long updateUser;
-}
-
-//步骤四：AOP切面类，实现自动填充
-@Aspect
-@Component
-public class AutoFillAspect {
-
-    //切入点：拦截所有带有@AutoFill注解的方法
-    @Pointcut("@annotation(com.example.annotation.AutoFill)")
-    public void autoFillPointCut(){}
-
-    //环绕通知：在方法执行前自动填充字段
-    @Around("autoFillPointCut()")
-    public Object autoFill(ProceedingJoinPoint joinPoint) throws Throwable {
-        //1.获取方法签名和注解，判断是INSERT还是UPDATE
-        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-        AutoFill autoFill = signature.getMethod().getAnnotation(AutoFill.class);
-        OperationType operationType = autoFill.value();
-
-        //2.获取方法参数（实体对象），约定实体放在第一个参数
-        Object[] args = joinPoint.getArgs();
-        if(args == null || args.length == 0){
-            return joinPoint.proceed();
-        }
-        Object entity = args[0];
-
-        //3.准备赋值的数据
-        LocalDateTime now = LocalDateTime.now();
-        Long currentId = BaseContext.getCurrentId(); //从ThreadLocal获取当前登录用户ID
-
-        //4.通过反射给实体对象赋值
-        if(operationType == OperationType.INSERT){
-            //插入操作：填充4个字段（createTime、updateTime、createUser、updateUser）
-            Method setCreateTime = entity.getClass().getDeclaredMethod("setCreateTime", LocalDateTime.class);
-            Method setUpdateTime = entity.getClass().getDeclaredMethod("setUpdateTime", LocalDateTime.class);
-            Method setCreateUser = entity.getClass().getDeclaredMethod("setCreateUser", Long.class);
-            Method setUpdateUser = entity.getClass().getDeclaredMethod("setUpdateUser", Long.class);
-
-            setCreateTime.invoke(entity, now);
-            setUpdateTime.invoke(entity, now);
-            setCreateUser.invoke(entity, currentId);
-            setUpdateUser.invoke(entity, currentId);
-        } else if(operationType == OperationType.UPDATE){
-            //更新操作：只填充2个字段（updateTime、updateUser）
-            Method setUpdateTime = entity.getClass().getDeclaredMethod("setUpdateTime", LocalDateTime.class);
-            Method setUpdateUser = entity.getClass().getDeclaredMethod("setUpdateUser", Long.class);
-
-            setUpdateTime.invoke(entity, now);
-            setUpdateUser.invoke(entity, currentId);
-        }
-
-        //5.放行，执行原方法（此时实体对象已经被填充好字段）
-        return joinPoint.proceed();
-    }
-}
-
-//步骤五：使用示例（在Service层方法上加注解即可）
-@Service
-public class UserServiceImpl implements UserService {
-
-    @AutoFill(OperationType.INSERT) //新增时自动填充4个字段
-    public void save(User user){
-        userMapper.insert(user);
-    }
-
-    @AutoFill(OperationType.UPDATE) //修改时自动填充2个字段
-    public void update(User user){
-        userMapper.update(user);
-    }
-}
-```
-
-**记忆口诀**：切面里面定义切入点，切入点匹配连接点，连接点触发通知。
 
 ---
 
@@ -332,7 +203,7 @@ public class UserServiceImpl implements UserService {
 
 ---
 
-## 五、最终功能实现：
+## 五、功能实现：
 
 ### 1.Controller层
 ```java
@@ -399,75 +270,8 @@ public class UserDaoImpl implements UserDao {
 
 ---
 
-## 六、SpringBoot高频面试知识点补充
 
-### 1.配置文件与配置绑定
-
-SpringBoot默认读取 `application.properties` 或 `application.yml`
-
-**① @Value 注入单个属性**
-```java
-@Value("${server.port}")
-private String serverPort;
-```
-
-**② @ConfigurationProperties 批量注入**
-将配置文件里一组前缀相同的属性批量绑定到实体类中，需要配合`@Component`使用
-
-### 2.统一异常处理（面试手写代码常考）
-
-```java
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @ExceptionHandler(Exception.class)
-    public Result handleException(Exception e){
-        //记录日志...
-        return Result.error("系统异常，请联系管理员");
-    }
-}
-```
-
-* **@RestControllerAdvice**：声明这是一个全局异常处理类（= @ControllerAdvice + @ResponseBody）
-* **@ExceptionHandler**：捕获指定类型的异常
-
-### 3.事务管理
-
-在业务层方法上加注解：
-
-```java
-@Transactional
-public void transfer() {
-    //扣钱...
-    //加钱...
-}
-```
-
-**作用**：保证方法内多条数据库操作要么都成功，要么都失败（回滚）
-
-**面试考点**：
-- 默认只有运行时异常（RuntimeException）才会回滚
-- 要想所有异常都回滚，需要设置 `@Transactional(rollbackFor = Exception.class)`
-
-### 4.AOP 面向切面编程（面试高频概念）
-
-**核心概念速记：**
-* **Aspect（切面）**：在哪干 + 干什么（日志、事务、权限）
-* **JoinPoint（连接点）**：程序执行过程中的任意位置，通常指方法
-* **Pointcut（切入点）**：匹配连接点的表达式，指定对哪些方法增强
-* **Advice（通知）**：具体的增强动作（前置、后置、环绕、异常、最终）
-
-**常用注解：**
-* **@Aspect**：声明这是一个切面类
-* **@Before**：前置通知，方法执行前运行
-* **@After**：后置通知，方法执行后运行
-* **@Around**：环绕通知，包裹目标方法（性能统计常用）
-
-**记忆口诀**：切面里面定义切入点，切入点匹配连接点，连接点触发通知。
-
----
-
-## 七、Spring Schedule 定时任务
+## 六、Spring Schedule 定时任务
 
 ### 1.@EnableScheduling 注解开启定时任务
 
@@ -604,3 +408,114 @@ spring:
 5. **时区问题**：默认使用服务器时区，可通过 `zone` 属性指定时区（如 `zone = "Asia/Shanghai"`）
 
 **记忆口诀**：定时任务要开启，方法无参无返回；fixedRate看开始，fixedDelay看结束；默认单线程，长任务要注意。
+
+---
+
+## 七、Spring AOP面向切面编程
+### 1.应用场景
+- 面向切面编程,面向方面编程,面向特定方法编程
+- 在不修改目标方法源代码的前提下,Spring AOP对请求链路上的目标方法进行**运行耗时的统计**
+- **底层原理:**Spring AOP底层通过**动态代理机制**实现对目标方法的编程,动态代理是目前面向切面编程最主流的实现技术
+- **常见应用场景:**给目标方法添加**事务管理**,给目标方法添加**访问权限控制**,对目标方法进行**读写分离**
+- **优势:**减少重复代码,代码无侵入,提高开发效率,维护方便
+
+### 2.核心概念
+- **连接点JoinPoint**:可以被AOP控制的方法(暗含方法执行时的相关信息)
+- **通知Advice**:指那些重复的逻辑,也就是共性功能(最终体现为一个方法)
+- **切入点PointCut**:匹配连接点的条件,通知仅会在切入点方法执行时被应用
+- **切面Aspect**:描述通知与切入点的对应关系(通知+切入点)
+- **目标对象Target**:通知所应用的对象
+
+### 3.使用方法
+(以Spring AOP对请求链路上的目标方法进行运行耗时的统计为例)
+- 1.**导入依赖**:在需要的工程中引入AOP的相关依赖
+```xml
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-aop</artifactId>
+    </dependency>
+```
+- 2.**编写AOP程序**:编写对目标方法操作的代码(例如统计目标方法运行耗时的代码)
+- 3.**添加注解**:添加AOP相关注解:@Around,@Aspect,@Before,@After
+
+**常用注解：**
+* **@Aspect**：声明这是一个切面类
+* **@Before**：前置通知，方法执行前运行
+* **@After**：后置通知，方法执行后运行
+* **@Around**：环绕通知，包裹目标方法（性能统计常用）
+
+```java
+@Slf4j
+@Aspect//标识当前是一个AOP类
+@Component
+public class BookAdvice {
+
+    //统计目标方法运行的耗时时间
+    @Around("execution(* com.itsean.campus_second_hand.controller..*.*(..))")
+    public Object method(ProceedingJoinPoint proceedingJoinPoint) throws Throwable { //proceedingJoinPoint:代表了目标方法
+        //1.目标方法运行钱,记录当前系统的时间start
+        long start = System.nanoTime();
+        //2.执行目标方法
+        Object result = proceedingJoinPoint.proceed();
+        //3.目标方法运行后,记录当前的时间end
+        long end = System.nanoTime();
+        //4.end-start
+        log.info("目标方法" + proceedingJoinPoint.toShortString() + "的运行时间是" + (end - start) + "纳秒");
+
+        return result;
+    }
+}
+
+```
+>注意:AOP的方法类需要加上@Component注解,将该方法类交给Spring管理,否则无法识别该AOP程序
+
+## SpringBoot高频面试知识点补充
+
+### 1.配置文件与配置绑定
+
+SpringBoot默认读取 `application.properties` 或 `application.yml`
+
+**① @Value 注入单个属性**
+```java
+@Value("${server.port}")
+private String serverPort;
+```
+
+**② @ConfigurationProperties 批量注入**
+将配置文件里一组前缀相同的属性批量绑定到实体类中，需要配合`@Component`使用
+
+### 2.统一异常处理（面试手写代码常考）
+
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(Exception.class)
+    public Result handleException(Exception e){
+        //记录日志...
+        return Result.error("系统异常，请联系管理员");
+    }
+}
+```
+
+* **@RestControllerAdvice**：声明这是一个全局异常处理类（= @ControllerAdvice + @ResponseBody）
+* **@ExceptionHandler**：捕获指定类型的异常
+
+### 3.事务管理
+
+在业务层方法上加注解：
+
+```java
+@Transactional
+public void transfer() {
+    //扣钱...
+    //加钱...
+}
+```
+
+**作用**：保证方法内多条数据库操作要么都成功，要么都失败（回滚）
+
+**面试考点**：
+- 默认只有运行时异常（RuntimeException）才会回滚
+- 要想所有异常都回滚，需要设置 `@Transactional(rollbackFor = Exception.class)`
+

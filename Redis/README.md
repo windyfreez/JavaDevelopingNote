@@ -817,3 +817,92 @@ public Result queryById(Long id) {
         stringRedisTemplate.delete(key);
     }
 ```
+
+## 3.秒杀
+### 3.1.实现全局唯一ID
+#### 产生原因
+对于优惠券等商品,用户抢购时,就会生成订单并且保存到订单表中,而订单表如果使用数据库自增ID就会存在(orderId)
+- id的规律性太明显
+- 受单表数据量的限制
+
+#### 全局ID生成器
+是一种在分布式系统下用来生成全局唯一ID的工具,一般要满足下列特性:
+- 唯一性
+- 高性能
+- 高可用
+- 递增性
+- 安全性
+
+为了增加id的安全性,我们可以不直接使用Redis自增的数值,而是拼接一些其他信息:
+![alt text](image-8.png)
+id的组成部分
+- 符号位:1bit,永远为0
+- 时间戳:31bit,以秒为单位,可使用69年
+- 序列号:32bit,秒内的计数器,支持每秒产生2^32个不同的ID
+
+#### 全局唯一ID生成策略:
+- UUID
+- Redis自增
+- snowflake算法(雪花算法)
+- 数据库自增
+
+### 3.2.高并发秒杀
+热门商品往往有着很多购买热度,当同一时间内多个用户秒杀抢购同一个商品时,库存扣减会出现错误,从而会导致商品超卖问题:
+**e.g.优惠券秒杀逻辑:**
+```java
+@Override
+    @Transactional
+    public Result seckillVoucher(Long voucherId) {
+        //1.查询优惠券
+        SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
+        //2.判断秒杀是否开始
+        if (voucher.getBeginTime().isAfter(LocalDateTime.now())) {
+            //尚未开始
+            return Result.fail("秒杀尚未开始!");
+        }
+        //3.判断秒杀是否已经结束
+        if (voucher.getEndTime().isBefore(LocalDateTime.now())) {
+            //已经结束
+            return Result.fail("秒杀已经结束!");
+        }
+        //4.判断库存是否充足
+        if (voucher.getStock() < 1) {
+            return Result.fail("库存不足!");
+        }
+
+        //5.扣减库存
+        boolean success = seckillVoucherService.update()
+                .setSql("stock = stock - 1")
+                .eq("voucher_id", voucherId).update();
+        if(!success) {
+            //扣减失败
+            return Result.fail("库存不足!");
+        }
+        //6.创建订单
+        VoucherOrder voucherOrder = new VoucherOrder();
+        //6.1.订单id
+        long orderId = redisIdWorker.nextId("order");
+        voucherOrder.setId(orderId);
+        //6.2.用户id
+        Long userId = UserHolder.getUser().getId();
+        voucherOrder.setUserId(userId);
+        //6.3.代金券id
+        voucherOrder.setVoucherId(voucherId);
+        save(voucherOrder);
+
+        //7.返回订单id
+        return Result.ok(orderId);
+    }
+```
+
+**优惠券秒杀,200线程压测,库存剩余-9:**
+![alt text](image-9.png)
+![alt text](image-11.png)
+
+#### 超卖问题
+超卖问题是典型的**多线程安全问题**,针对这一问题的常见解决方案就是加锁:
+- **悲观锁**:认为线程安全问题**一定会发生**,因此在操作数据之前先获取锁,确保线程串行执行
+- 例如Synchronized,Lock都属于悲观锁
+- **乐观锁**:认为线程安全问题**不一定会发生**,因此不加锁,只是在更新数据时去判断有没有其他线程对数据做了修改
+- **如果没有修改**则认为是安全的,自己才更新数据
+- **如果已经被其他线程修改**说明发生了安全问题,此时可以**重试或异常**

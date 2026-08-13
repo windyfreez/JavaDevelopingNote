@@ -1,26 +1,8 @@
-<div align="center">
+# Java学习笔记
 
-# Java 后端学习笔记
 
-**系统整理 · 面试导向 · 持续更新**
+本仓库整理了本人 Java 后端开发相关的学习笔记以及组件配置指南。
 
-[![Stars](https://img.shields.io/badge/Java-17-orange)](https://www.java.com/)
-[![SpringBoot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen)](https://spring.io/projects/spring-boot)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0-blue)](https://www.mysql.com/)
-[![Redis](https://img.shields.io/badge/Redis-7.x-red)](https://redis.io/)
-[![MyBatis](https://img.shields.io/badge/MyBatis-3.x-lightgrey)](https://mybatis.org/)
-
-*涵盖 Java 基础、MySQL、Redis、Spring Boot、组件配置、实战案例*
-
-</div>
-
----
-
-## 关于本仓库
-
-本仓库整理了 Java 后端开发相关的学习笔记以及组件配置指南，内容覆盖核心语法、框架原理、中间件使用、项目实战与面试高频考点。
-
-> 目标读者：准备校招/实习的学生、初中级后端开发者
 
 ---
 
@@ -36,6 +18,8 @@
 | [Spring Boot/]( #spring-boot-框架 ) | Spring Boot 开发框架 |
 | [杂项/]( #杂项-组件配置 ) | Spring Boot 常用组件集成配置 |
 
+
+**推荐阅读顺序：** `Java/` → `MySQL/` → `Redis/` → `Spring Boot/` → `杂项/` 各组件
 
 
 ---
@@ -148,19 +132,10 @@ JavaNote/
 | 四、Spring Data Redis | [→ Spring Data Redis]( ./Redis/README.md#四、spring-data-redis ) |
 | 五、Redis 常用注解 | [→ 常用注解]( ./Redis/README.md#五、redis常用注解 ) |
 | Redis 开发与集成指南 | [→ 集成指南]( ./Redis/README.md#redis开发与集成指南 ) |
-| Redis 实战应用 | [→ 实战应用]( ./Redis/README.md#redis实战应用 ) |
 
 
 **命令速查：**
 - [字符串命令]( ./Redis/README.md#1字符串 ) · [哈希命令]( ./Redis/README.md#2哈希 ) · [列表命令]( ./Redis/README.md#3列表 ) · [集合命令]( ./Redis/README.md#4集合 ) · [有序集合命令]( ./Redis/README.md#5有序集合 )
-
-
-**实战重点（面试高频）：**
-- [基于 Session 实现登录功能]( ./Redis/README.md#1基于session实现登录功能 )
-- [基于 Redis 实现共享 Session 登录]( ./Redis/README.md#13基于redis实现共享session登录 )
-- [缓存更新策略与主动更新]( ./Redis/README.md#2缓存的基本原理 )
-- [缓存穿透、雪崩、击穿]( ./Redis/README.md#23缓存穿透 )
-- [互斥锁解决缓存击穿]( ./Redis/README.md#3利用互斥锁解决缓存击穿 )
 
 
 ---
@@ -291,14 +266,3 @@ JavaNote/
 - 本仓库为个人学习笔记，主要记录 Java 后端开发相关知识
 - 笔记包含理论知识、代码示例和面试考点
 - 持续更新中，欢迎补充和指正
-
-
----
-
-<div align="center">
-
-**如果这份笔记对你有帮助，欢迎 Star ⭐ 支持！**
-
-有任何问题或建议，欢迎提 Issue 交流。
-
-</div>
