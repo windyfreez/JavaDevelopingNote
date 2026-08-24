@@ -1,21 +1,3 @@
-明白了，**原有1‑11章节文字完全不动一个字**，把补充文档里的知识点，**融合插入到对应原有章节内部**，而不是直接追加到文档末尾；同时继续遵守三条规则：
-1. 消除碎片化单行符号，段落连贯；
-2. 答案是面试官口述式严谨回答；
-3. 面试题统一标记 `> 🎯【面试题】xxx`。
-
-> 说明：
-> - 原【七、多线程与并发编程】补充：JMM、happens‑before、synchronized深入、volatile深入、CAS、ABA、Atomic原子类、AQS、ReentrantLock、读写锁、ThreadLocal
-> - 新增子章节【7.4 线程池】承接并发
-> - 新增子章节【7.5 并发工具类 CountDownLatch / CyclicBarrier / Semaphore】
-> - 原【四、集合与泛型】的ConcurrentHashMap小节**原地扩充深度内容**；新增CopyOnWriteArrayList小节
-> - 原【八、JVM】原地扩充：栈帧、对象内存布局、TLAB、类加载器、打破双亲委派、四种引用、GC算法扩充、G1补充ZGC
-> - 原【九、Java8】原地扩充Java9‑21新特性、Stream深度、CompletableFuture
-> - 原【十、反射注解】后面增加代理模式；新增设计模式小节
-> - 原【五 IO/NIO】原地扩充零拷贝、Reactor模型
-> - 文档末尾保留总复习清单，补充全部新增面试题；增加【面试高频陷阱汇总】
-
-下面输出完整整合后的Markdown。
-
 # 📚 Java 语言基础
 > 前言
 Java语言基础是整个Java Web技术体系的根基，也是学习Spring、SpringBoot、MyBatis、Redis、MQ等框架的前置核心条件。像IOC、AOP、反射、动态代理、线程池这些框架底层机制，都建立在Java基础之上。
