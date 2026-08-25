@@ -1,482 +1,470 @@
-# MySQL数据库
+# 📚 MySQL数据库
+# 前言
 
-## 一、多表关系
+## 1. 学习说明
+MySQL 是后端开发岗位面试和实战开发的核心重点，不同于日常简单 CRUD 使用，面试 90% 考察**底层原理、并发机制、性能问题、故障坑点、优化思想**。整套知识体系分为：表关系设计、多表查询、MyBatis 动态 SQL、事务原理与 `ACID`、`MVCC` 多版本并发控制、三大日志机制、锁机制全套原理、索引底层 `B+Tree` 结构、执行计划分析、数据库引擎对比、线上高阶 SQL 优化、大表调优方案。所有知识点层层递进，从基础使用到底层原理全覆盖，彻底解决只会写代码、不懂底层的问题。
 
-### 1.一对多
-可以在创建表是或者表结构创建完成后，为字段添加外键约束
-e.g.部门与员工之间的关系为一对多，一个部门下有多个员工，外键约束是员工的id，由此建立部门表和员工表的关系。
+## 2. 面试核心重点
+企业面试高频必问核心重难点：事务隔离级别差异、`MVCC` 无锁并发原理、幻读彻底解决机制、`InnoDB` 锁体系、行锁变表锁事故场景、`B+Tree` 索引底层优势、聚簇与非聚簇索引差异、回表与覆盖索引原理、全量索引失效场景、`explain` 执行计划深度分析、`redo_log`/`undo_log`/`binlog` 三大日志作用与区别、死锁成因与解决方案、`InnoDB` 与 `MyISAM` 引擎差异、深分页优化、长事务危害、线上慢查询优化全套思路。
 
-具体语法如下：
+面试核心要求：不背诵代码，能够**连贯口述底层原理、区分所有易混淆知识点、精准说出线上生产坑点、给出完整优化解决方案**。
 
-```sql
--- 创建表时指定
-create table dept{
-    ...
-    [constraint][外键名称] foreign key (外键字段名)references 主表（字段名）
-}
-```
+## 3. 面试八股清单
 
-```sql
--- 建完表后添加外键
-alter table 表名 add constraint 外键名称 foreign key （外键字段名） references 主表（字段名）
-```
+### 🎯【⭐⭐⭐⭐⭐ 必须掌握（面试必考）】
+1. 详细说说 MySQL 三种表关系的设计思想、实现方式、适用业务场景？
+2. 物理外键的作用是什么？为什么生产环境坚决禁止使用？企业是如何替代实现关联约束的？
+3. 内连接、左外连接、右外连接的底层区别？真实业务中分别在什么场景使用？
+4. MyBatis 动态 SQL 常用标签底层作用？`where`、`set` 标签具体解决了什么开发痛点？`foreach` 有什么坑？
+5. 事务 `ACID` 四大特性分别代表什么？分别依靠 MySQL 什么底层机制保证？
+6. 脏读、不可重复读、幻读分别是什么现象？产生的底层原因是什么？
+7. MySQL 四种事务隔离级别逐级讲解，分别解决了哪些问题、遗留哪些问题、性能排序如何？默认级别是什么？
+8. 详细口述 `MVCC` 多版本并发控制完整原理？快照读和当前读的区别和使用场景？
+9. `redo_log`、`undo_log`、`binlog` 三大日志的作用、底层区别、各自解决什么问题？
+10. MySQL 完整锁体系讲解：全局锁、表级锁、行级锁、意向锁、`MDL` 锁的特点和使用场景？
+11. 共享锁与排他锁的互斥机制？记录锁、间隙锁、临键锁分别如何工作？
+12. MySQL 默认 `RR` 隔离级别到底能不能彻底解决幻读？是如何解决的？
+13. 死锁产生的四大必要条件？线上如何排查死锁日志？生产环境如何规避死锁？
+14. `InnoDB` 和 `MyISAM` 引擎全方位对比，优缺点、适用场景、底层差异？
+15. `B+Tree` 索引结构底层原理？对比 `B` 树、`Hash` 索引的绝对优势？
+16. 聚簇索引和非聚簇索引的底层结构差异？什么是回表查询？回表过程是怎样的？
+17. 联合索引最左前缀法则的底层原理？详细说所有失效场景？
+18. 什么是覆盖索引？优势是什么？如何设计索引避免回表？
+19. 汇总所有索引失效场景，隐式类型转换为什么会导致索引失效？
+20. `explain` 执行计划核心字段讲解，`type` 字段性能层级是什么？如何判断 SQL 优劣？
+21. `count(*)`、`count(1)`、`count(字段)` 底层执行区别、性能差异、统计规则差异？
+22. 大表 `limit` 深分页为什么慢？有哪些成熟的优化方案？
+23. 什么是长事务？长事务会带来哪些线上危害？如何排查和优化？
+24. 日常开发中 SQL、索引、事务、锁的全套优化方案是什么？
 
-**注意：外键名称为"fk_表1_表2_关联的变量名"**
+### 🎯【⭐⭐⭐⭐ 建议掌握（中高级面试常问）】
+1. 一对一表拆分的核心意义是什么？冷热数据分离的设计思想？
+2. 索引下推 `ICP`、`MRR` 优化机制的作用？能提升哪些场景性能？
+3. 前缀索引的使用场景、优缺点、适用和不适用的字段？
+4. 行锁升级为表锁的所有场景？会造成什么严重线上事故？
+5. `MDL` 元数据锁的阻塞机制？线上 `DDL` 卡死问题如何规避？
+6. 意向锁的设计目的？解决了什么样的性能效率问题？
+7. MySQL 主从复制完整原理？`binlog` 三种格式的区别和适用场景？
+8. 分库分表的核心思想、适用场景、解决什么瓶颈、带来什么问题？
 
-### 2.多对多
-需要建立一张中间表，中间表有两个外键字段，分别关联两方的主键
-* e.g.学生与课程之间的关系
-* 关系：一个学生有多个课程，每个课程有多个学生选择
-* **实现：建立第三章中间表，中间表至少包含两个外键，分别关联两方主键**
+## 4. MySQL高频面试陷阱速记（生产必避坑）
+1. 生产环境**绝对禁止物理外键**，物理外键会加剧锁竞争、引发死锁、降低写入性能、分库分表迁移极度困难，企业全部通过业务代码实现逻辑关联校验。
+2. Spring 声明式事务**默认仅回滚运行时异常**，编译异常、检查异常不会触发回滚，必须手动配置 `rollbackFor` 统一回滚规则。
+3. MySQL 默认 `RR` 可重复读隔离级别，**`MVCC` 解决快照读幻读，临键锁解决当前读幻读**，是两套机制共同解决幻读问题，并非单纯靠隔离级别。
+4. `InnoDB` 行锁是**索引锁而非数据锁**，查询条件无索引、索引失效、字段类型不匹配，都会导致行锁升级为全表表锁，直接阻塞整表读写，是线上高频卡顿事故根源。
+5. 索引列使用函数运算、左侧模糊匹配、隐式类型转换，**百分百触发索引失效**，走全表扫描。
+6. 联合索引最左前缀法则由 `B+Tree` 排序结构决定，跳过前置字段直接导致索引部分失效或完全失效。
+7. 间隙锁、临键锁**仅在 `RR` 可重复读隔离级别下生效**，`RC` 读已提交级别没有间隙锁，无法杜绝插入幻读。
+8. 线上长事务危害极大，会长时间占用行锁、堆积大量 `undo_log`、阻塞 `DDL` 语句、加剧主从延迟、拖垮整体数据库性能。
+9. 日常禁止使用 `select *`，会无法使用覆盖索引、强制回表查询、加载大量无用字段、浪费 IO 资源和内存。
+10. `count(普通字段)` 会自动忽略 `null` 值，统计结果不准，`count(*)` 统计所有数据行，业务行数统计必须使用 `count(*)`。
+11. 左外连接查询筛选条件如果写在 `where` 后面，会过滤掉 `null` 数据，直接降级为内连接，条件必须写在 `on` 关联后。
+12. 动态 SQL 中单纯使用 `where 1=1` 拼接条件，会导致数据库优化器无法优化 SQL，索引失效，生产禁止使用。
 
-### 3.一对一
-一对一是特殊的一对多（方法与一对多同理）。在任意一方添加外键，关联另一方的主键
-* e.g.用户与身份证信息的关系
-* 关系：一对一关系，用于单表拆分，将一张表的基础字段放在一张表上，其他字段放在另一张表上，**以提升操作效率**。
-* **实现：在任意一方加入外键，关联另一方的主键，并且设置外键为唯一的（unique）**
+# 一、多表关系设计（数据库设计核心）
+实际业务系统中，所有数据都是关联存在的，不可能单表独立存储。MySQL 通过外键机制定义表与表之间的关联关系，规范数据存储、减少数据冗余、保证数据完整性。标准关系分为一对多、多对多、一对一三种，其中一对多使用最多，多对多需要中间表，一对一用于冷热数据拆分。
 
+## 1. 一对多关系
+### 1.1 核心原理与业务场景
+一对多是业务系统中最普遍的表关系，核心逻辑是：一张主表的单条数据，可以关联多张从表数据，但是从表的单条数据，只能归属一个主表数据。为了保证结构合理、无数据冗余，**外键字段必须建立在多的一方（从表）**。
 
-## 二、多表查询
-### 1.内连接
-内连接指的是两张表交集部分的数据
-```sql
--- 内连接
--- 1.查询所有员工的ID，姓名，及其所属的部门名称（隐式、显式内连接）
--- 隐式
-select emp.id,emp.name,dept.name from emp,dept where emp.dept_id = dept.id;
+如果将外键建立在一方主表中，主表需要存储海量从表 `id`，会导致字段无限扩张、数据极度冗余、无法维护。而从表存储主表 `id`，每条子数据仅保留一个父级标识，结构规整、查询高效、完全符合数据库设计三大范式。典型业务场景包含部门与员工、商品分类与商品、订单与订单明细、文章分类与文章。
 
--- 显式
-select emp.id,emp.name,dept.name from emp inner join dept on emp.dept_id = dept.id;
-
-select emp.id,emp.name,dept.name from emp join dept on emp.dept_id = dept.id;
-
--- 2.查询性别为男，且工资高于8000的员工的ID，姓名，及其所属的部门名称（隐式、显式内连接）
--- 隐式
-select emp.id,emp.name,dept.name from emp,dept where emp.dept_id = dept.id and gender=1 and emp.salary>8000;
-
--- 显式
-select emp.id,emp.name,dept.name from emp inner join dept on emp.dept_id = dept.id where gender=1 and emp.salary>8000;
-
--- 为表起别名
-select e.id,e.name,d.name from emp e join dept d on e.dept_id = d.id where gender=1 and e.salary>8000;
-```
-
-### 2.外连接
-左外连接和右外连接
-
-```sql
--- 外连接
--- 1.查询员工表所有员工的姓名，和对应的部门名称（左外连接）
-select e.name,d.name from emp e left outer join dept d on e.dept_id=d.id;
-
--- 2.查询部门表所有部门的名称，和对应的部门名称（右外连接）
-select d.name,e.name from emp e right outer join dept d on e.dept_id = d.id;
-
--- 3.查询工资高于8000的所有员工的姓名和对应部门名称
-select e.name,d.name from emp e left join dept d on e.dept_id = d.id where e.salary>8000;
-```
-
-## 三、动态sql
-动态 SQL 是 MyBatis 提供的核心功能，能根据不同的条件动态拼接 SQL 语句，避免手动拼接 SQL 带来的语法错误和安全问题
-
-`<if>`单条件判断，满足则拼接 SQL	条件查询、动态更新
-`<where>`	自动处理前缀 and、or，无条件时不生成 where 子句	多条件查询
-`<set>`自动处理后缀逗号，无更新字段时不生成 set 子句	动态更新
-`<foreach>`	遍历集合（List / 数组），拼接批量操作 SQL	批量删除、批量插入
-`<choose>`	多条件分支（类似 Java 的 switch），只执行一个满足的条件	多条件互斥查询
-
-
-## 四、事务、ACID
-### 1.事务四大特性
-
-- 原子性（Atomicity）：事务是不可分割的最小操作单元，要么全部成功，要么全部失败。
-- 一致性（Consistency）：事务完成时，必须使所有的数据都保持一致状态。
-- 隔离性（Isolation）：数据库系统提供的隔离机制，保证事务在不受外部并发操作影响的独立环境下运行。
-- 持久性（Durability）：事务一旦提交或回滚，它对数据库中的数据的改变就是永久的。
-### 2.并发事务问题
-|问题	|描述|
-|-|-|
-|脏读|	一个事务读到另外一个事务还没有提交的数据。|
-|不可重复读|	一个事务先后读取同一条记录，但两次读取的数据不同，称之为不可重复读。|
-|幻读|	一个事务按照条件查询数据时，没有对应的数据行，但是在插入数据时，又发现这行数据已经存在，好像出现了 “幻影”。|
-
-1)脏读
-![alt text](image-11.png)
-2)不可重复读
-![alt text](image-10.png)
-3)幻读
-![alt text](image-12.png)
-
-### 3.事务隔离级别
-
-![alt text](image-13.png)
-```sql
--- 查看事务隔离级别
-SELECT @@TRANSACTION_ISOLATION;
-
--- 设置事务隔离级别
-SET [SESSION|GLOBAL] TRANSACTION ISOLATION LEVEL {READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SERIALIZABLE};
-```
-
-### 4.事务操作
-1)查看/设置事务提交方式
-```sql
-SELECT @@autocommit;
-SET @@autocommit = 0;
-```
-
-2)提交事务
-```sql
-COMMIT;
-```
-
-3)回滚事务
-```sql
-ROLLBACK;
-```
-
-
----
-
-## 五、锁（Lock）
-
-锁是计算机协调多个进程或线程并发访问某一资源的机制，主要用于解决事务并发访问时的数据一致性问题。
-
-### 1.锁的分类
-
-**（1）按锁粒度划分**
-
-| 锁类型 | 描述        |
-| --- | --------- |
-| 全局锁 | 锁定整个数据库实例 |
-| 表级锁 | 锁定整张表     |
-| 行级锁 | 锁定某一行记录   |
-
-**（2）按操作类型划分**
-
-| 锁类型     | 描述                |
-| ------- | ----------------- |
-| 共享锁（S锁） | 允许读，不允许写          |
-| 排他锁（X锁） | 允许当前事务读写，其他事务不能读写 |
-
-### 2.全局锁
-
-对整个数据库实例加锁。
+### 1.2 实操语法规范
+企业统一外键命名规范：`fk_从表名_主表名_关联字段名`，可读性强、便于维护。支持建表时直接定义外键、建表后动态追加外键两种方式。
 
 ```sql
--- 加全局锁
-flush tables with read lock;
+-- 建表：部门主表
+CREATE TABLE `dept` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `dept_name` VARCHAR(32) NOT NULL COMMENT '部门名称'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 解锁
-unlock tables;
+-- 建表时直接定义外键，员工从表（多方）
+CREATE TABLE `emp` (
+    `id` INT PRIMARY KEY AUTO_INCREMENT,
+    `name` VARCHAR(20),
+    `salary` DECIMAL(10,2),
+    `dept_id` INT,
+    CONSTRAINT `fk_emp_dept_dept_id` FOREIGN KEY(`dept_id`) REFERENCES `dept`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 已有数据表追加外键约束
+ALTER TABLE `emp` 
+ADD CONSTRAINT `fk_emp_dept_dept_id` 
+FOREIGN KEY(`dept_id`) REFERENCES `dept`(`id`);
 ```
 
-**应用场景**：数据库全库备份（`mysqldump`）
+### 1.3 面试八股（高频口述）
+**面试官提问：一对多关系为什么外键必须放在多的一方？放在一方会有什么问题？**
 
-加锁期间：
-* 可以查询
-* 不可以增删改
+**口述回答**：一对多的核心设计原则就是外键归多方。如果外键放在一方主表中，主表需要存储所有从表的关联 `id`，会造成字段无限变长、数据严重冗余，完全无法维护。而将外键放在从表，每条子数据只存储一个父级 `id`，结构简洁、冗余最低、查询高效，完全符合数据库范式设计，是行业统一标准。
 
-### 3.表级锁
+## 2. 多对多关系
+### 2.1 核心原理与业务场景
+多对多是双向一对多的特殊关系，两张业务表的数据可以互相关联多条对方数据，无法通过单外键直接建立关联。因此必须引入一张**中间关联表**解耦两张主表，中间表不存储任何业务数据，只存储两张主表的主键关联关系，实现双向多关联。
 
-**（1）表锁**
+这种设计的最大优势是解耦、扩展性极强，新增关联关系、删除关联关系都只操作中间表，不会改动核心业务表数据。经典业务场景：学生与课程、用户与角色、订单与商品、文章与标签。
 
 ```sql
--- 加读锁
-lock tables 表名 read;
+-- 用户表
+CREATE TABLE `sys_user` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `username` VARCHAR(32) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 加写锁
-lock tables 表名 write;
+-- 角色表
+CREATE TABLE `sys_role` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `role_name` VARCHAR(32) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 解锁
-unlock tables;
+-- 用户角色中间表，实现多对多
+CREATE TABLE `sys_user_role` (
+  `user_id` INT NOT NULL,
+  `role_id` INT NOT NULL,
+  PRIMARY KEY (`user_id`,`role_id`),
+  CONSTRAINT `fk_ur_user_id` FOREIGN KEY (`user_id`) REFERENCES `sys_user`(`id`),
+  CONSTRAINT `fk_ur_role_id` FOREIGN KEY (`role_id`) REFERENCES `sys_role`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-读锁特点：
-* 当前客户端：可以查询，不可以更新
-* 其他客户端：可以查询，不可以更新
+### 2.2 面试八股（高频口述）
+**面试官提问：多对多为什么必须使用中间表？能不能直接两张表关联？**
 
-写锁特点：
-* 当前客户端：可以查询，可以更新
-* 其他客户端：不可以查询，不可以更新
+**口述回答**：不能直接两张表关联。多对多是双向关联，两边数据都能对应多条对方数据，单一外键无法实现双向绑定。引入中间表可以彻底解耦两张核心业务表，只维护关联关系，保证职责单一、结构清晰、扩展性强，避免数据冗余和结构混乱，是数据库设计的标准规范。
 
-**（2）元数据锁（MDL）**
+## 3. 一对一关系
+### 3.1 核心原理与业务场景
+一对一属于特殊的一对多，本质是在一对多基础上，给从表外键添加 `unique` 唯一约束，保证双方数据一一对应。一对一不用于普通关联，核心作用是**单表拆分、冷热数据分离**。
 
-Meta Data Lock，对表进行 CRUD 操作时自动加 MDL 锁，避免 DDL 和 DML 冲突。
-
-例如：执行 `select * from emp;` 时，`alter table emp add age int;` 会被阻塞。
-
-**（3）意向锁**
-
-为了提高表锁与行锁共存时的效率。
-* **意向共享锁（IS）**：表示事务准备给某些数据行加共享锁
-* **意向排他锁（IX）**：表示事务准备给某些数据行加排他锁
-
-### 4.行级锁（InnoDB）
-
-InnoDB 存储引擎支持行锁，特点：锁粒度小、并发度高、加锁开销较大。
-
-**（1）共享锁（S）**
+当一张表字段过多、包含大文本、长备注、图片地址等低频大字段时，整表查询会造成大量磁盘 IO 浪费，严重影响查询性能。通过一对一拆分，将高频查询的基础字段放在主表，低频、大字段放在副表，实现按需查询、冷热分离，大幅提升数据库吞吐量。典型场景：用户基础信息与身份证详情、商品基础信息与商品详情大文本。
 
 ```sql
-select * from emp where id = 1 lock in share mode;
--- MySQL8：
-select * from emp where id = 1 for share;
+-- 用户基础主表（高频访问）
+CREATE TABLE `user_base` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `username` VARCHAR(32),
+  `phone` VARCHAR(11)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 用户详情副表（大字段、低频访问）一对一
+CREATE TABLE `user_detail` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `user_id` INT UNIQUE NOT NULL COMMENT '唯一约束，实现一对一',
+  `id_card` VARCHAR(18),
+  `avatar_url` VARCHAR(255),
+  `self_intro` TEXT COMMENT '大文本自我介绍',
+  CONSTRAINT `fk_ud_user_id` FOREIGN KEY (`user_id`) REFERENCES `user_base`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-**（2）排他锁（X）**
+### 3.2 面试八股（高频口述）
+**面试官提问：一对一表拆分的意义是什么？为什么不全部放在一张表里？**
+
+**口述回答**：主要是为了冷热数据分离和性能优化。单表字段过多、包含大字段时，普通查询会加载大量无用数据，造成磁盘 IO 浪费、查询变慢。拆分后高频字段独立查询，低频大字段按需关联查询，极大减少 IO 开销，提升整体接口响应速度和数据库并发性能。
+
+# 二、多表查询（业务开发核心）
+实际业务开发中，80% 的查询都需要关联多张表获取整合数据。多表查询主要分为内连接和外连接两大类，核心区别是数据保留规则不同，开发必须根据业务场景选择对应连接方式，否则会出现数据缺失、数据错误等问题。
+
+## 1. 内连接 `INNER JOIN`
+内连接的核心逻辑是**只保留两张表的交集数据**，只有两张表中能够互相匹配的关联数据才会被查询出来，任意一方不存在匹配数据，都会直接过滤舍弃。内连接分为隐式连接和显式连接，企业开发统一推荐显式 `JOIN` 写法，结构清晰、便于维护、不易出错。
 
 ```sql
-select * from emp where id = 1 for update;
+-- 显式内连接（企业开发推荐）
+SELECT e.`id`,e.`name`,e.`salary`,d.`dept_name`
+FROM `emp` e
+INNER JOIN `dept` d ON e.`dept_id` = d.`id`
+WHERE e.`salary` > 8000;
+
+-- 隐式内连接，不推荐
+SELECT e.`id`,e.`name`,d.`dept_name`
+FROM `emp` e,`dept` d
+WHERE e.`dept_id` = d.`id` AND e.`salary` > 8000;
 ```
-其他事务不能修改该记录。
 
-**（3）记录锁（Record Lock）**
+## 2. 外连接
+外连接会保留某一张表的全部数据，根据匹配情况填充另一张表数据，分为左外连接和右外连接，开发中**左连接使用占比 99%**，几乎不使用右连接。
 
-锁定单条记录。
+左外连接以左表为基准，左表所有数据全部保留，右表匹配到数据则展示，匹配不到则填充 `NULL`；右外连接以右表为基准，逻辑相反，可读性差、极少使用。
 
 ```sql
-select * from emp where id = 1 for update;
+-- 左外连接：查询所有员工，包含没有分配部门的员工
+SELECT e.`id`,e.`name`,d.`dept_name`
+FROM `emp` e
+LEFT OUTER JOIN `dept` d ON e.`dept_id` = d.`id`;
+
+-- 错误示范：条件写where，左连接降级为内连接
+SELECT e.`id`,e.`name`,d.`dept_name`
+FROM `emp` e
+LEFT JOIN `dept` d ON e.`dept_id` = d.`id`
+WHERE d.`dept_name` = '技术部';
+
+-- 正确示范：筛选条件放在on后
+SELECT e.`id`,e.`name`,d.`dept_name`
+FROM `emp` e
+LEFT JOIN `dept` d ON e.`dept_id` = d.`id` AND d.`dept_name` = '技术部';
 ```
 
-**（4）间隙锁（Gap Lock）**
+### 2.1 面试八股（超高频）
+**面试官提问：左连接 `on` 条件和 `where` 条件有什么本质区别？写错会有什么后果？**
 
-锁定索引记录之间的间隙，防止幻读。
+**口述回答**：`on` 是表关联条件，用于匹配两张表的关联关系，不会过滤左表数据；`where` 是查询结果过滤条件，会对关联后的整体结果做筛选。如果把左连接的筛选条件写在 `where` 后面，会过滤掉右表为 `NULL` 的数据，直接导致左连接降级为内连接，出现业务数据缺失，是开发高频易错点。
 
-例如：id 为 1, 5, 10，事务A执行：
-```sql
-select * from emp where id between 1 and 10 for update;
-```
-会锁住 `(1,5)` 和 `(5,10)` 之间的间隙。
+# 三、MyBatis 动态 SQL
+动态 SQL 是 MyBatis 最核心、最实用的功能之一，彻底解决了传统硬编码 SQL 的冗余问题。业务查询、更新条件往往是动态可变的，不同前端参数对应不同 SQL 语句，如果手动拼接会出现大量重复代码、语法报错、多余 `and`/`or`、多余逗号等问题，动态标签可以自动智能拼接、规避语法错误。
 
-**（5）临键锁（Next-Key Lock）**
+## 1. 核心标签底层原理与作用
+- **`if` 标签**：最基础的单条件判断，判断参数是否非空，满足条件才拼接对应 SQL 片段，适用于动态查询、动态更新场景。
+- **`where` 标签**：智能处理查询条件前缀，自动去除首个多余的 `and`、`or`，同时所有 `if` 条件不成立时，不会生成 `where` 关键字，彻底杜绝语法报错。
+- **`set` 标签**：专门用于动态更新语句，自动去除最后一个字段更新后的多余逗号，避免动态字段拼接导致的 SQL 语法错误。
+- **`foreach` 标签**：用于遍历集合、数组，实现批量插入、批量删除、`in` 范围查询，是批量操作核心标签。
+- **`choose` 标签**：多条件互斥分支，类似 Java `switch` 语句，多个条件中只会匹配第一个满足的条件，适用于互斥查询场景。
 
-记录锁 + 间隙锁，MySQL 默认采用，解决幻读问题。
+```xml
+<!-- where + if 动态查询示例 -->
+<select id="queryEmp" resultType="com.xxx.entity.Emp">
+    SELECT `id`,`name`,`salary`,`dept_id` FROM `emp`
+    <where>
+        <if test="name != null and name != ''">
+            AND `name` LIKE CONCAT('%',#{name},'%')
+        </if>
+        <if test="minSalary != null">
+            AND `salary` >= #{minSalary}
+        </if>
+    </where>
+</select>
 
-### 5.死锁
+<!-- set + if 动态更新示例 -->
+<update id="updateEmpSelective">
+    UPDATE `emp`
+    <set>
+        <if test="name != null">`name` = #{name},</if>
+        <if test="salary != null">`salary` = #{salary},</if>
+        <if test="deptId != null">`dept_id` = #{deptId}</if>
+    </set>
+    WHERE `id` = #{id}
+</update>
 
-多个事务互相等待对方释放资源。例如：事务A锁住记录1等待记录2，事务B锁住记录2等待记录1，形成死锁。
-
-```sql
--- 查看死锁
-show engine innodb status;
-```
-
-**死锁解决**：MySQL 自动检测死锁，回滚代价较小的事务并释放锁资源。
-
-## 六、索引（Index）
-
-索引是帮助 MySQL 高效获取数据的数据结构，本质上是**排好序的数据结构**。类似新华字典目录、图书目录，通过索引可以快速定位数据。
-
-### 1.索引的优缺点
-
-**优点**
-* 提高查询效率
-* 降低磁盘 IO
-* 提高排序和分组效率
-
-**缺点**
-* 占用存储空间
-* 降低增删改效率
-* 索引维护需要成本
-
-### 2.索引结构
-
-MySQL 常见索引结构：
-
-| 索引结构     | 描述         |
-| -------- | ---------- |
-| B+Tree   | MySQL 默认索引 |
-| Hash     | 精确匹配       |
-| FullText | 全文索引       |
-| R-Tree   | 空间索引       |
-
-**B+Tree结构特点**
-
-* 非叶子节点只存索引
-* 叶子节点存数据
-* 叶子节点形成双向链表
-* 查询效率稳定
-
-### 3.索引分类
-
-**（1）主键索引**
-
-```sql
-create table user(
-    id bigint primary key
-);
+<!-- foreach in查询示例 -->
+<select id="queryEmpByIds" resultType="com.xxx.entity.Emp">
+    SELECT * FROM `emp`
+    WHERE `id` IN
+    <foreach collection="idList" item="item" open="(" separator="," close=")">
+        #{item}
+    </foreach>
+</select>
 ```
 
-特点：唯一、非空
+### 面试八股（高频）
+**面试官提问：开发中为什么禁止使用 `where 1=1` 拼接动态条件？**
 
-**（2）唯一索引**
+**口述回答**：`where 1=1` 是老式不规范写法，虽然能拼接多条件，但会导致 MySQL 优化器无法正常优化 SQL，直接失效索引优化策略，同时代码可读性差、不规范。生产环境统一使用 `where` 动态标签替代，既能实现动态多条件拼接，又能保证 SQL 可优化、语法安全。
 
-```sql
-create unique index idx_email on user(email);
-```
-
-特点：唯一、可以为 NULL
-
-**（3）普通索引**
+# 四、事务、ACID、隔离级别、MVCC（面试重中之重）
+事务是数据库保证数据安全、并发安全的核心机制，所有转账、下单、扣库存、支付等核心业务，全部依赖事务保证数据一致性。面试重点考察底层原理而非使用，`ACID` 特性、并发问题、隔离级别、`MVCC` 无锁并发是必问核心。
 
 ```sql
-create index idx_name on user(name);
+-- 手动事务演示
+START TRANSACTION; -- 开启事务
+UPDATE `account` SET `balance`=`balance`-100 WHERE `id`=1;
+UPDATE `account` SET `balance`=`balance`+100 WHERE `id`=2;
+COMMIT; -- 提交事务
+
+-- 出错时回滚
+-- ROLLBACK;
+
+-- 查看当前会话隔离级别
+SELECT @@tx_isolation;
+-- 设置会话隔离级别
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
 ```
 
-**（4）联合索引**
+## 1. 事务 ACID 四大特性（底层保障机制）
+`ACID` 是事务的四大核心特性，每一个特性都对应 MySQL 一套底层机制支撑，并非空概念：
 
-联合索引是指在多个列上同时建立的一个索引，而不是在每一列上单独建索引。
+- **原子性（Atomicity）**：事务是最小执行单元，不可拆分，所有操作要么全部成功提交，要么全部失败回滚。由 `undo_log` 回滚日志保证。
+- **一致性（Consistency）**：事务执行前后，数据库约束、业务数据状态始终合法一致，不会出现非法中间数据，是事务的最终目标。
+- **隔离性（Isolation）**：多事务并发执行时，互相隔离、互不干扰，保证并发数据安全。由锁机制 + `MVCC` 多版本并发控制共同保证。
+- **持久性（Durability）**：事务一旦提交成功，数据修改永久落地，服务器宕机、断电不会丢失数据。由 `redo_log` 重做日志保证。
 
-- 联合索引的本质：排序顺序
-联合索引的底层仍然是 B+ 树，但它是按照列的顺序依次排序的：
+## 2. 并发事务三大问题
+多事务并发执行时，隔离不足会出现三类数据问题，严重影响业务正确性：
 
-- 先按 name 排序 → name 相同再按 age 排序
-可以想象成字典：先按姓氏排，姓氏相同再按名字排。
+|问题类型|详细现象与危害|
+|---|---|
+|脏读|一个事务读取到了其他事务**未提交**的临时数据，如果对方事务回滚，当前读取的数据就是无效脏数据，严重影响业务判断。|
+|不可重复读|同一个事务内，两次查询同一条数据，结果不一致。因为中间被其他事务修改并提交，导致单次事务内数据不稳定。|
+|幻读|同一个事务按条件查询无数据，执行插入时报错数据已存在，或前后查询数据行数不一致，像出现幻影数据，多出现于批量操作场景。|
+
+## 3. 四大事务隔离级别
+MySQL 提供四级隔离级别，级别越高数据安全性越高、并发性能越低，逐级规避并发问题：
+
+1. **读未提交**：最低级别，存在脏读、不可重复读、幻读，生产完全不用。
+2. **读已提交(`RC`)**：只能读取已提交数据，解决脏读，存在不可重复读、幻读。
+3. **可重复读(`RR`、MySQL默认)**：解决脏读、不可重复读，存在理论幻读，底层通过 `MVCC`+临键锁彻底解决业务幻读。
+4. **串行化**：最高级别，事务串行执行，解决所有问题，性能极低，极少使用。
+
+
+## 4. MVCC 多版本并发控制（核心重难点）
+`MVCC` 是 `InnoDB` 实现高并发事务的核心机制，全称多版本并发控制，核心作用是**无锁实现读写并发**，极大提升数据库并发性能，是 MySQL 高性能的根本原因之一。
+
+`MVCC` 底层依靠 `undo_log` 版本链 + `readView` 一致性视图实现。数据被修改时，旧数据会存入 `undo_log` 形成历史版本链，普通查询不会加锁，而是根据当前事务的 `readView` 读取符合规则的历史快照版本，实现读写不冲突。
+
+`MVCC` 区分两种读取方式：**快照读**和**当前读**。普通 `select` 查询属于快照读，走 `MVCC` 无锁查询；`update`、`delete`、`insert`、`select ... for update`、`select ... lock in share mode` 属于当前读，走锁机制，读取最新数据。
 
 ```sql
-create index idx_name_age on user(name,age);
+-- 快照读（普通select，不加锁）
+SELECT * FROM `emp` WHERE `id` = 1;
+
+-- 当前读，加排他锁
+SELECT * FROM `emp` WHERE `id` = 1 FOR UPDATE;
+
+-- 当前读，加共享锁
+SELECT * FROM `emp` WHERE `id` = 1 LOCK IN SHARE MODE;
 ```
 
-遵循**最左前缀法则**
+### 面试八股（必背）
+**面试官提问：MySQL 默认 `RR` 隔离级别，真的彻底解决幻读了吗？原理是什么？**
 
->联合索引是"一个索引、多列有序"，查询时必须从定义的最左边列开始匹配，才能生效。 设计时要把区分度高、作为等值查询条件的列放在前面。
+**口述回答**：彻底解决了业务层面的幻读问题，是两套机制共同实现的。对于普通快照读，依靠 `MVCC` 多版本机制，读取历史数据快照，看不到其他事务新增数据，避免幻读；对于加锁的当前读，依靠临键锁锁定索引区间，禁止其他事务插入数据，杜绝幻读。两者结合，彻底解决 `RR` 级别幻读问题。
 
-**（5）全文索引**
+# 五、三大日志机制（底层核心）
+MySQL 所有事务安全、崩溃恢复、主从复制、数据持久化，全部依赖三大日志机制，是底层原理面试必考重点，三者各司其职、互不冲突。
+
+## 1. redo log 重做日志
+`redo log` 是 `InnoDB` 引擎级别的日志，核心作用是**保证事务持久性、实现崩溃恢复**。MySQL 为了提升性能，不会实时把内存数据刷入磁盘，而是先写入 `redo log` 日志，事务提交即视为持久化。如果服务器宕机，重启后会根据 `redo log` 重做未落地的数据，保证数据不丢失。
+
+## 2. undo log 回滚日志
+`undo log` 同样是 `InnoDB` 引擎日志，承担两大核心作用：一是**保证事务原子性**，事务失败时根据 `undo log` 回滚数据；二是**维护 `MVCC` 版本链**，保存数据修改前的历史版本，供快照读查询使用。
+
+## 3. bin log 二进制日志
+`binlog` 是 MySQL 服务层日志，所有存储引擎通用，记录所有 `DDL`、`DML` 语句。核心作用是**主从复制、数据备份与恢复**，主库通过 `binlog` 同步数据到从库，同时可以通过 `binlog` 恢复误删、误改数据。
 
 ```sql
-create fulltext index idx_content on article(content);
+-- 查看binlog是否开启
+SHOW VARIABLES LIKE '%log_bin%';
+-- 查看binlog格式
+SHOW VARIABLES LIKE 'binlog_format';
 ```
 
-### 4.索引操作
+### 面试八股
+**面试官提问：redoLog 和 binLog 的核心区别是什么？**
+
+**口述回答**：第一层级不同，`redo_log` 是 `InnoDB` 引擎日志，`binlog` 是 MySQL 服务层日志；第二作用不同，`redo_log` 负责崩溃恢复、保证事务持久化，`binlog` 负责主从复制和数据恢复；第三日志类型不同，`redo_log` 是物理日志，记录磁盘数据页变化，`binlog` 是逻辑日志，记录 SQL 语句逻辑。
+
+# 六、锁机制（并发安全核心）
+锁是数据库解决多事务并发竞争、保证数据一致性的核心机制。MySQL 锁体系非常完善，按照粒度分为全局锁、表级锁、行级锁，按照功能分为共享锁、排他锁，同时包含 `MDL` 锁、意向锁、间隙锁、临键锁等特殊锁，是面试重难点。
 
 ```sql
--- 查看索引
-show index from 表名;
+-- 手动加表共享读锁
+LOCK TABLES `emp` READ;
+-- 手动加表排他写锁
+LOCK TABLES `emp` WRITE;
+-- 释放表锁
+UNLOCK TABLES;
 
--- 创建索引
-create index 索引名 on 表名(字段名);
+-- 行级共享锁（当前读）
+SELECT * FROM `emp` WHERE `id` = 1 LOCK IN SHARE MODE;
+-- 行级排他锁（当前读）
+SELECT * FROM `emp` WHERE `id` = 1 FOR UPDATE;
 
--- 删除索引
-drop index 索引名 on 表名;
-
--- 创建联合索引
-create index idx_name_age_gender on emp(name,age,gender);
+-- 查看死锁日志
+SHOW ENGINE INNODB STATUS;
 ```
 
-### 5.最左前缀法则
+## 1. 锁粒度层级
+锁粒度越大，加锁开销越小、并发性能越低；粒度越小，加锁开销越大、并发性能越高。优先级：全局锁 > 表锁 > 行锁。`InnoDB` 优先使用行锁，保证高并发能力。
 
-联合索引 `(name, age, gender)` 的生效情况：
+## 2. 特殊锁详解
+### 2.1 MDL 元数据锁
+`MDL` 锁是系统自动维护的元数据锁，所有 `DML` 读写操作会自动加 `MDL` 读锁，所有 `DDL` 修改表结构操作会加 `MDL` 写锁。核心作用是**防止 `DML` 和 `DDL` 并发冲突**，避免表结构变更过程中数据读写错乱，是线上 `DDL` 卡死问题的根源。
 
-**✅ 生效**
-```sql
-where name='Tom'
-where name='Tom' and age=18
-where name='Tom' and age=18 and gender=1
-```
+### 2.2 意向锁
+意向锁分为意向共享锁 `IS`、意向排他锁 `IX`，是表级辅助锁。核心作用是提升表锁与行锁共存时的检测效率，不需要遍历全表所有行锁，就能快速判断表是否存在行锁，极大优化锁检测性能。
 
-**⚠ 部分生效**（只使用 `name`）
-```sql
-where name='Tom' and gender=1
-```
+## 3. InnoDB 行锁细分
+`InnoDB` 行锁精准锁定索引行，细分三类：记录锁锁定单条索引记录；间隙锁锁定两条索引之间的空白区间，防止插入幻读；临键锁是记录锁+间隙锁的结合体，左开右闭区间，彻底杜绝当前读幻读，是 `RR` 隔离级别核心机制。
 
-**❌ 不生效**（跳过了最左列）
-```sql
-where age=18
-where gender=1
-```
+> ⚠️ 注意：如果查询条件不走索引，行锁直接升级为表锁，整表被锁住。
 
-### 6.索引失效场景
+## 4. 死锁
+死锁是多事务互相持有对方所需锁资源、互相无限等待的现象，必须同时满足四大条件：互斥、请求保持、不可剥夺、循环等待。MySQL 会自动检测死锁，回滚代价最小的事务解除阻塞。生产优化方案：统一 SQL 加锁顺序、缩短事务执行时间、避免长事务。
 
-| 场景 | 示例 |
-|------|------|
-| 对索引列进行运算 | `where substring(name,1,2)='张三'` |
-| 类型隐式转换 | `name` 为 varchar，但 `where name = 123` |
-| 模糊查询左侧使用% | `where name like '%三'` |
-| OR连接非索引列 | `where id=1 or age=20`（age无索引） |
-| 联合索引违反最左前缀 | `(age,gender)` 中 `where gender=1` |
-
-### 7.覆盖索引
-
-查询的数据全部来自索引，无需回表查询，效率最高。
+# 七、索引底层原理与优化（面试高频）
+索引是数据库优化的核心，所有慢查询、接口卡顿、数据库性能瓶颈，90% 都和索引设计不合理、索引失效有关。面试重点考察 `B+Tree` 底层、聚簇非聚簇索引、覆盖索引、索引失效、优化方案。
 
 ```sql
-create index idx_name_age on emp(name,age);
+-- 创建普通单列索引
+CREATE INDEX idx_emp_name ON `emp`(`name`);
 
-select name,age from emp where name='Tom';
+-- 创建联合索引（最左前缀）
+CREATE INDEX idx_emp_sal_dept ON `emp`(`salary`,`dept_id`);
+
+-- 创建唯一索引
+CREATE UNIQUE INDEX idx_emp_phone ON `emp`(`phone`);
+
+-- 查看表索引
+SHOW INDEX FROM `emp`;
+
+-- 执行计划分析SQL，必看type列
+EXPLAIN SELECT * FROM `emp` WHERE `name`='张三';
 ```
 
-### 8.EXPLAIN执行计划
+## 1. B+Tree 索引优势
+MySQL 默认使用 `B+Tree` 作为索引结构，相比 `B` 树，`B+Tree` 非叶子节点只存储索引键、不存储数据，树的层级更低、磁盘 IO 更少；所有数据都在叶子节点，叶子节点双向链表串联，范围查询、排序查询效率极高。相比 `Hash` 索引，支持范围查询、排序、分组，数据稳定无哈希冲突。
 
-用于分析 SQL 执行情况。
+## 2. 聚簇索引与非聚簇索引
+聚簇索引就是主键索引，叶子节点直接存储整行完整数据，查询速度最快；非聚簇索引是普通二级索引，叶子节点只存储主键值，查询到数据后需要根据主键再次回表查询完整数据，产生二次 IO，也就是**回表查询**。
+
+## 3. 覆盖索引
+覆盖索引是优化天花板，当查询的所有字段都包含在二级索引中，不需要回表查询，直接从索引获取数据，省去二次 IO，性能极致提升。日常优化优先设计覆盖索引，避免回表。
 
 ```sql
-EXPLAIN SELECT * FROM emp WHERE id = 1;
+-- 建立联合索引，形成覆盖索引，不需要回表
+CREATE INDEX idx_name_salary ON `emp`(`name`,`salary`);
+-- extra列出现Using index，代表命中覆盖索引
+EXPLAIN SELECT `name`,`salary` FROM `emp` WHERE `name`='张三';
 ```
 
-重点关注字段：
+## 4. 索引失效全集
+索引列使用函数运算、隐式类型转换、左侧模糊匹配、`or` 连接无索引字段、违反最左前缀法则、`order by` 字段无索引、`null` 判断不当，都会直接导致索引失效，走全表扫描。
 
-| 字段            | 说明     |
-| ------------- | ------ |
-| id            | 查询顺序   |
-| select_type   | 查询类型   |
-| table         | 查询表    |
-| type          | 访问类型   |
-| possible_keys | 可使用索引  |
-| key           | 实际使用索引 |
-| rows          | 扫描行数   |
-| Extra         | 额外信息   |
+```sql
+-- 索引失效示例1：索引列做函数运算
+EXPLAIN SELECT * FROM `emp` WHERE DATE(create_time) = '2026‑08‑25';
 
-**type性能排序**（从上到下性能逐渐降低）
+-- 索引失效示例2：左侧模糊匹配
+EXPLAIN SELECT * FROM `emp` WHERE `name` LIKE '%三';
 
-```text
-NULL > system > const > eq_ref > ref > range > index > ALL
+-- 索引失效示例3：隐式类型转换，字符串字段传数字
+EXPLAIN SELECT * FROM `emp` WHERE `phone` = 13800138000;
 ```
 
-重点：尽量达到 `const`、`eq_ref`、`ref`、`range`，避免 `ALL`（全表扫描）。
+## 5. explain 执行计划
+`explain` 用于分析 SQL 执行效率，核心看 `type` 字段，性能从高到低：`system > const > eq_ref > ref > range > index > ALL`，开发必须杜绝 `ALL` 全表扫描。
 
-### 9.索引设计原则
+# 八、数据库引擎对比
+MySQL 主流两大存储引擎为 `InnoDB` 和 `MyISAM`，`InnoDB` 是默认引擎、适配高并发业务，`MyISAM` 适配静态只读场景。`InnoDB` 支持事务、行锁、`MVCC`、崩溃恢复、外键，并发性能高、数据安全；`MyISAM` 不支持事务、仅表锁、无事务机制，读取速度快，但不适合高并发读写业务。
 
-**适合建立索引**
-* 主键字段
-* 唯一性高的字段
-* 经常作为查询条件的字段
-* 经常排序、分组的字段
-* 多表关联字段
+```sql
+-- 查看表使用引擎
+SHOW CREATE TABLE `emp`;
+-- 修改表引擎
+ALTER TABLE `emp` ENGINE=InnoDB;
+```
 
-**不适合建立索引**
-* 数据量很小的表
-* 频繁更新的字段
-* 区分度很低的字段（如性别）
-* 大字段（TEXT、BLOB）
+# 九、线上高阶优化方案
+深分页 `limit 10000,10` 会扫描大量无效数据，优化方案为主键覆盖索引分页、延迟关联；`count(*)` 统计行数最准确，`count(字段)` 忽略 `null` 值统计不准；长事务会堆积 `undo_log`、占用锁、引发主从延迟，必须拆分缩短事务；日常开发杜绝 `select *`、规避索引失效、合理设计联合索引、遵守最左前缀法则。
 
-## 七、MySQL优化总结（面试高频）
+```sql
+-- 深分页原始慢SQL
+SELECT * FROM `emp` LIMIT 10000,10;
 
-### SQL优化
+-- 优化方案1：主键子查询（覆盖索引）
+SELECT * FROM `emp` WHERE `id` >= (SELECT `id` FROM `emp` LIMIT 10000,1) LIMIT 10;
 
-* 避免 `select *`
-* 使用覆盖索引
-* 避免索引失效
-* 小表驱动大表
-* 尽量使用联合索引
-
-### 索引优化
-
-* 建立高区分度索引
-* 遵循最左前缀法则
-* 控制索引数量
-* 优先使用联合索引代替多个单列索引
-
-### 事务优化
-
-* 事务尽量短
-* 避免长事务
-* 及时提交事务
-* 合理选择隔离级别
-
-### 锁优化
-
-* 尽量使用行锁
-* 缩小锁范围
-* 避免死锁
-* 建立索引防止行锁升级导致大量扫描
+-- 优化方案2：延迟关联
+SELECT e.* FROM `emp` e
+INNER JOIN (SELECT `id` FROM `emp` LIMIT 10000,10) t ON e.`id` = t.`id`;
+```
