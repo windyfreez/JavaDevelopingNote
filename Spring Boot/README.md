@@ -1,5 +1,60 @@
-# Springboot开发框架
-> 学习说明：SpringBoot基于Spring，核心是简化配置、自动装配；面试重点：IOC/DI、Bean生命周期、AOP、事务、配置绑定、定时任务、全局异常、REST接口；不要死记代码，要能口述原理、说出坑点。
+# 📚 Springboot开发框架
+## 前言
+
+### 学习说明
+SpringBoot基于Spring，核心是简化配置、自动装配；
+### 面试重点
+IOC/DI、Bean生命周期、AOP、事务、配置绑定、定时任务、全局异常、REST接口；不要死记代码，要能口述原理、说出坑点。
+### 以下是本文整理出的常见八股问题清单，对照复习效率翻倍
+
+> 🎯【⭐⭐⭐⭐⭐ 必须掌握】
+1. 什么是三层架构？每一层职责？为什么要分层？禁止跨层调用指什么？
+2. `@RestController` 和 `@Controller` 的区别？
+3. `@RequestParam`、`@PathVariable`、`@RequestBody` 三者区别与使用场景？
+4. 什么是IOC控制反转、DI依赖注入？两者关系？什么是Bean？
+5. `@SpringBootApplication` 由哪三个注解组成？各自作用？SpringBoot自动装配原理？
+6. SpringBoot Starter启动器的作用是什么？
+7. `@Component`、`@Service`、`@Controller`、`@Repository` 区别？
+8. `@Configuration` 和 `@Component` 的区别？`@Bean`注解用途？
+9. Bean的作用域有哪些？默认singleton单例特点？`@Lazy`懒加载作用？
+10. Spring依赖注入三种方式？官方推荐哪一种？各自优缺点？
+11. `@Autowired` 和 `@Resource` 的区别？
+12. 同一个类型多个Bean，如何解决注入冲突？`@Primary`、`@Qualifier`用法？
+13. 什么是循环依赖？Spring如何解决循环依赖？哪种注入方式无法解决循环依赖？
+14. Spring Bean完整生命周期？
+15. Spring Schedule定时任务，`@EnableScheduling`、`@Scheduled`使用要求？
+16. `fixedRate` 和 `fixedDelay` 的区别？任务耗时超过间隔会发生什么？
+17. Cron表达式语法，日和周字段注意什么？
+18. Spring Schedule默认线程池有什么坑？集群部署定时任务会出现什么问题？生产怎么解决？
+19. 什么是AOP？底层原理？JDK动态代理与CGLIB代理区别？
+20. AOP五大核心概念：连接点、通知、切入点、切面、目标对象？
+21. AOP五种通知类型以及执行顺序？`@Around`环绕通知用法？
+22. 配置绑定：`@Value` 和 `@ConfigurationProperties` 的区别？
+23. `@RestControllerAdvice + @ExceptionHandler` 全局异常处理，有哪些拦截边界限制？
+24. `@Transactional`声明式事务，默认什么异常才回滚？`rollbackFor`作用？
+25. `@Transactional`事务失效常见场景？
+26. Filter过滤器和Interceptor拦截器区别？完整执行顺序？
+
+> 🎯【⭐⭐⭐⭐ 建议掌握】
+27. Lombok常用注解`@Data`、`@NoArgsConstructor`、`@AllArgsConstructor`注意事项？
+28. 切入点execution表达式语法规则？
+29. 什么是RESTful接口设计思想？
+30. SpringBoot条件注解`@ConditionalOnClass`、`@ConditionalOnMissingBean`作用？
+31. 定时任务实际业务使用场景？
+32. AOP适合哪些业务场景？有什么优势？
+33. yml与properties配置文件对比？
+34. 什么场景推荐使用XXL‑Job替代Spring自带@Scheduled？
+
+---
+### 📌 SpringBoot高频面试陷阱速记
+1. `@RestControllerAdvice` 拦截不到Filter、定时任务、异步线程抛出的异常。
+2. `@Transactional` 同类内直接调用方法事务会失效，必须走代理对象。
+3. Spring Schedule默认单线程，耗时任务会阻塞其余定时任务；集群多实例会重复执行。
+4. `@RequestBody` 不能接收GET的query参数，只能读取请求体JSON。
+5. 构造器注入会触发循环依赖报错，Spring无法解决构造器的循环依赖。
+6. Cron表达式中`日`和`周`不能同时指定具体值，其中一个必须写`?`。
+7. `@Data`搭配`@AllArgsConstructor`会丢失默认无参构造，框架反射实例化会报错。
+8. 切面类、定时任务类不加`@Component`交给IOC容器，注解完全不生效。
 
 ## 一、三层架构
 ### 1.三层架构：
@@ -503,51 +558,3 @@ public class BookAdvice {
 
 
 # 📋 SpringBoot 高频八股总复习清单
-> 🎯【⭐⭐⭐⭐⭐ 必须掌握】
-1. 什么是三层架构？每一层职责？为什么要分层？禁止跨层调用指什么？
-2. `@RestController` 和 `@Controller` 的区别？
-3. `@RequestParam`、`@PathVariable`、`@RequestBody` 三者区别与使用场景？
-4. 什么是IOC控制反转、DI依赖注入？两者关系？什么是Bean？
-5. `@SpringBootApplication` 由哪三个注解组成？各自作用？SpringBoot自动装配原理？
-6. SpringBoot Starter启动器的作用是什么？
-7. `@Component`、`@Service`、`@Controller`、`@Repository` 区别？
-8. `@Configuration` 和 `@Component` 的区别？`@Bean`注解用途？
-9. Bean的作用域有哪些？默认singleton单例特点？`@Lazy`懒加载作用？
-10. Spring依赖注入三种方式？官方推荐哪一种？各自优缺点？
-11. `@Autowired` 和 `@Resource` 的区别？
-12. 同一个类型多个Bean，如何解决注入冲突？`@Primary`、`@Qualifier`用法？
-13. 什么是循环依赖？Spring如何解决循环依赖？哪种注入方式无法解决循环依赖？
-14. Spring Bean完整生命周期？
-15. Spring Schedule定时任务，`@EnableScheduling`、`@Scheduled`使用要求？
-16. `fixedRate` 和 `fixedDelay` 的区别？任务耗时超过间隔会发生什么？
-17. Cron表达式语法，日和周字段注意什么？
-18. Spring Schedule默认线程池有什么坑？集群部署定时任务会出现什么问题？生产怎么解决？
-19. 什么是AOP？底层原理？JDK动态代理与CGLIB代理区别？
-20. AOP五大核心概念：连接点、通知、切入点、切面、目标对象？
-21. AOP五种通知类型以及执行顺序？`@Around`环绕通知用法？
-22. 配置绑定：`@Value` 和 `@ConfigurationProperties` 的区别？
-23. `@RestControllerAdvice + @ExceptionHandler` 全局异常处理，有哪些拦截边界限制？
-24. `@Transactional`声明式事务，默认什么异常才回滚？`rollbackFor`作用？
-25. `@Transactional`事务失效常见场景？
-26. Filter过滤器和Interceptor拦截器区别？完整执行顺序？
-
-> 🎯【⭐⭐⭐⭐ 建议掌握】
-27. Lombok常用注解`@Data`、`@NoArgsConstructor`、`@AllArgsConstructor`注意事项？
-28. 切入点execution表达式语法规则？
-29. 什么是RESTful接口设计思想？
-30. SpringBoot条件注解`@ConditionalOnClass`、`@ConditionalOnMissingBean`作用？
-31. 定时任务实际业务使用场景？
-32. AOP适合哪些业务场景？有什么优势？
-33. yml与properties配置文件对比？
-34. 什么场景推荐使用XXL‑Job替代Spring自带@Scheduled？
-
----
-### 📌 SpringBoot高频面试陷阱速记
-1. `@RestControllerAdvice` 拦截不到Filter、定时任务、异步线程抛出的异常。
-2. `@Transactional` 同类内直接调用方法事务会失效，必须走代理对象。
-3. Spring Schedule默认单线程，耗时任务会阻塞其余定时任务；集群多实例会重复执行。
-4. `@RequestBody` 不能接收GET的query参数，只能读取请求体JSON。
-5. 构造器注入会触发循环依赖报错，Spring无法解决构造器的循环依赖。
-6. Cron表达式中`日`和`周`不能同时指定具体值，其中一个必须写`?`。
-7. `@Data`搭配`@AllArgsConstructor`会丢失默认无参构造，框架反射实例化会报错。
-8. 切面类、定时任务类不加`@Component`交给IOC容器，注解完全不生效。

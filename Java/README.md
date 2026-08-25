@@ -1,8 +1,76 @@
 # 📚 Java 语言基础
-> 前言
-Java语言基础是整个Java Web技术体系的根基，也是学习Spring、SpringBoot、MyBatis、Redis、MQ等框架的前置核心条件。像IOC、AOP、反射、动态代理、线程池这些框架底层机制，都建立在Java基础之上。
->
-> 学习建议：不要单纯背诵面试八股文，重点理解底层原理，能够手写代码、讲清楚“为什么”，才算是真正掌握。扎实的Java基础，会让后续框架学习事半功倍。
+## 前言
+- Java语言基础是整个Java Web技术体系的根基，也是学习Spring、SpringBoot、MyBatis、Redis、MQ等框架的前置核心条件。像IOC、AOP、反射、动态代理、线程池这些框架底层机制，都建立在Java基础之上。
+- 学习建议：不要单纯背诵面试八股文，重点理解底层原理，能够手写代码、讲清楚“为什么”，才算是真正掌握。扎实的Java基础，会让后续框架学习事半功倍。
+### 以下是从本文中整理出的八股复习对照清单：
+> 🎯【⭐⭐⭐⭐⭐ 必须掌握】
+1. `==` 和 `equals()` 的区别？
+2. 为什么重写 `equals()` 必须重写 `hashCode()`？
+3. Java 是值传递还是引用传递？
+4. String 为什么不可变？
+5. StringBuilder 和 StringBuffer 的区别？
+6. Integer 缓存机制？
+7. ArrayList 和 LinkedList 的区别？
+8. ArrayList 扩容机制？
+9. HashMap 底层数据结构？
+10. HashMap `put()` 流程？
+11. HashMap 为什么使用红黑树？
+12. HashMap 为什么数组长度通常是 2 的幂？
+13. HashMap 为什么需要 Hash 扰动？
+14. HashMap 扩容机制？
+15. HashSet 为什么不能存储重复元素？
+16. HashMap 和 ConcurrentHashMap 的区别？
+17. ConcurrentHashMap 如何保证线程安全？
+18. CopyOnWriteArrayList原理和适用场景
+19. JVM 内存区域有哪些？
+20. 堆和栈有什么区别？栈帧包含什么？
+21. 类加载过程？
+22. 双亲委派模型是什么？什么时候打破？
+23. GC Roots 是什么？四种引用？
+24. 垃圾回收算法有哪些？
+25. 新生代和老年代是什么？G1、ZGC特点
+26. synchronized 原理？可重入？
+27. synchronized 和 ReentrantLock 区别？读写锁？
+28. volatile 能保证什么？为什么不能保证原子性？
+29. CAS 是什么？ABA 问题是什么？原子类？
+30. AQS 是什么？
+31. ThreadLocal原理，为什么要remove()
+32. 线程池七大参数和工作流程？
+33. 线程池拒绝策略有哪些？
+34. execute和submit区别，shutdown/shutdownNow
+35. 为什么不建议直接使用 Executors 创建线程池？
+36. CountDownLatch、CyclicBarrier、Semaphore区别
+
+> 🎯【⭐⭐⭐⭐ 建议掌握】
+37. 泛型擦除是什么？
+38. `<? extends T>` 和 `<? super T>` 区别？
+39. PECS 原则？
+40. BIO 和 NIO区别，Reactor、零拷贝？
+41. `sleep()`、`wait()`、`join()` 区别？
+42. 反射是什么？
+43. 注解和元注解是什么？
+44. Lambda 和函数式接口？
+45. Stream中间操作、终止操作；map/flatMap
+46. CompletableFuture常用API，join与get
+47. Optional 是什么？
+48. try‑with‑resources 是什么？
+49. JDK动态代理与CGLIB区别
+50. 单例模式，DCL为什么要volatile
+51. Java21虚拟线程特点
+
+> 📌 Java后端高频面试陷阱汇总
+1. Java只有值传递，不存在引用传递；引用类型传递的是引用副本。
+2. volatile不能保证i++原子性，因为是读‑改‑写多步操作。
+3. LinkedList索引增删不一定比ArrayList快，索引定位消耗O(n)。
+4. ConcurrentHashMap多个独立操作组合不天然原子，要用putIfAbsent、compute。
+5. finally不是100%执行，System.exit会终止JVM，跳过finally。
+6. 不能绝对说switch性能一定优于if‑else，JIT会做优化。
+7. 不能说基本类型全部在栈上，JIT逃逸分析会改变分配位置。
+8. parallelStream并行流不一定变快，小数据量调度开销更大。
+
+**备战面试建议对照这个常见八股问题清单来复习，复习效率事半功倍**
+**接下来是正文部分：**
+
 ## 一、Java 基础语法
 ### 1. 标识符的定义规则
 标识符就是我们给类、变量、方法、常量起的名字，它的组成、命名都有固定约束：
@@ -867,67 +935,3 @@ StackOverflowError栈溢出；OutOfMemoryError内存溢出；内存泄漏对象�
 > 其他高频模式：工厂模式、模板方法、策略模式、责任链、观察者模式；Spring框架大量使用这些模式。
 
 ## 十一、Java 基础高频八股总复习清单
-> 🎯【⭐⭐⭐⭐⭐ 必须掌握】
-1. `==` 和 `equals()` 的区别？
-2. 为什么重写 `equals()` 必须重写 `hashCode()`？
-3. Java 是值传递还是引用传递？
-4. String 为什么不可变？
-5. StringBuilder 和 StringBuffer 的区别？
-6. Integer 缓存机制？
-7. ArrayList 和 LinkedList 的区别？
-8. ArrayList 扩容机制？
-9. HashMap 底层数据结构？
-10. HashMap `put()` 流程？
-11. HashMap 为什么使用红黑树？
-12. HashMap 为什么数组长度通常是 2 的幂？
-13. HashMap 为什么需要 Hash 扰动？
-14. HashMap 扩容机制？
-15. HashSet 为什么不能存储重复元素？
-16. HashMap 和 ConcurrentHashMap 的区别？
-17. ConcurrentHashMap 如何保证线程安全？
-18. CopyOnWriteArrayList原理和适用场景
-19. JVM 内存区域有哪些？
-20. 堆和栈有什么区别？栈帧包含什么？
-21. 类加载过程？
-22. 双亲委派模型是什么？什么时候打破？
-23. GC Roots 是什么？四种引用？
-24. 垃圾回收算法有哪些？
-25. 新生代和老年代是什么？G1、ZGC特点
-26. synchronized 原理？可重入？
-27. synchronized 和 ReentrantLock 区别？读写锁？
-28. volatile 能保证什么？为什么不能保证原子性？
-29. CAS 是什么？ABA 问题是什么？原子类？
-30. AQS 是什么？
-31. ThreadLocal原理，为什么要remove()
-32. 线程池七大参数和工作流程？
-33. 线程池拒绝策略有哪些？
-34. execute和submit区别，shutdown/shutdownNow
-35. 为什么不建议直接使用 Executors 创建线程池？
-36. CountDownLatch、CyclicBarrier、Semaphore区别
-
-> 🎯【⭐⭐⭐⭐ 建议掌握】
-37. 泛型擦除是什么？
-38. `<? extends T>` 和 `<? super T>` 区别？
-39. PECS 原则？
-40. BIO 和 NIO区别，Reactor、零拷贝？
-41. `sleep()`、`wait()`、`join()` 区别？
-42. 反射是什么？
-43. 注解和元注解是什么？
-44. Lambda 和函数式接口？
-45. Stream中间操作、终止操作；map/flatMap
-46. CompletableFuture常用API，join与get
-47. Optional 是什么？
-48. try‑with‑resources 是什么？
-49. JDK动态代理与CGLIB区别
-50. 单例模式，DCL为什么要volatile
-51. Java21虚拟线程特点
-
-### 📌 Java后端高频面试陷阱汇总
-1. Java只有值传递，不存在引用传递；引用类型传递的是引用副本。
-2. volatile不能保证i++原子性，因为是读‑改‑写多步操作。
-3. LinkedList索引增删不一定比ArrayList快，索引定位消耗O(n)。
-4. ConcurrentHashMap多个独立操作组合不天然原子，要用putIfAbsent、compute。
-5. finally不是100%执行，System.exit会终止JVM，跳过finally。
-6. 不能绝对说switch性能一定优于if‑else，JIT会做优化。
-7. 不能说基本类型全部在栈上，JIT逃逸分析会改变分配位置。
-8. parallelStream并行流不一定变快，小数据量调度开销更大。
