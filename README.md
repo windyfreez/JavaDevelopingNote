@@ -1,8 +1,51 @@
 # Java学习笔记
 
+## 前言
 
-本仓库整理了本人 Java 后端开发相关的学习笔记以及组件配置指南。
+欢迎来到我的 Java 后端学习仓库！这里记录了我从 2025 年初开始系统学习 Java 后端技术栈以来的全部笔记沉淀：从语言基础到框架实战、从数据库底层原理到中间件应用、从面试八股到算法手撕，再到可以直接落地的 Linux 部署与组件配置指南。每一篇笔记都经过*"**学习 → 实践 → 面试复盘**"*的打磨，既是我的复习资料，也希望成为你学习路上的参考。
 
+这个仓库始终坚持一个原则：**不只记录"怎么用"，更讲清"为什么"**。面试考的是底层原理，开发考的是避坑能力，因此笔记中大量采用"**面试题 + 参考答案 + 陷阱速记**"的形式，帮助大家把知识讲出来、写出来、用起来。
+
+### 关于内容
+本仓库整理了本人 **Java 后端开发**相关的学习笔记、面试八股、算法手撕以及组件配置指南。
+本人正在求职**java后端 + AI应用开发职位**，该仓库包含本人所有复习资料，其中重要的内容包括：
+- **java语言基础**：基本语法、面向对象、集合、异常处理、多线程、JVM虚拟机等基础知识；
+- **MySQL数据库**：多表关系、事务ACID、锁、索引、MVCC、SQL慢查询、MyBatis框架等相关知识
+- **Spring Boot框架**：三层架构、IOC/DI/AOP、统一异常处理，声明式事务管理、Spring Scheduled定时任务、RESTful接口设计思想等核心知识
+- **Redis缓存中间件**：缓存相关知识、Redis常用数据结构/基本操作、Spring Redis基本用法、缓存穿透/击穿/雪崩、实际高并发应用场景详解等核心知识
+- **RabbitMQ消息队列**：交换机、消息队列、消费者/生产者等相关概念、Java操作RabbitMQ相关方法等
+- **Linux相关知识**：Linux常用命令、CentOS7安装方法、VMWare虚拟机安装、Linux安装JDK/MySQL/nginx/Redis/RabbitMQ、Linux部署Spring Boot项目等相关方法
+- 其他：包括**算法题思路（本人的理解）与答案**、**Spring Boot相关组件配置方法**
+
+
+笔记实时动态更新，博主将不断总结更新Java后端开发学习的相关知识，**版权归作者所有，请勿商用**
+
+**推荐阅读顺序：** `Java/` → `MySQL/` → `Spring Boot/` → `Redis/` → `RabbitMQ/` → `Linux/` → `杂项/`
+该顺序与作者的学习顺序相同，我认为这对于知识连贯性是相对合理的 
+
+
+### 仓库亮点
+- **🎯 面试八股清单 + 参考答案对照**：每篇笔记开头都有按星级标注的常见面试题清单，正文给出可直接口述的参考答案，复习效率翻倍；
+- **⚠️ 高频陷阱速记**：把最容易踩坑、最容易答错的知识点单独提炼成"陷阱速记"，面试/上线前快速过一遍即可查漏补缺；
+- **🔍 底层原理深入**：不满足于会用，深入讲解 MySQL MVCC/锁/索引、JVM 内存与 GC、并发编程、Spring 自动装配等底层机制，能够连贯口述原理；
+- **💻 完整代码示例**：所有知识点都配有可直接运行的代码/命令示例，动手实践才能真正内化；
+- **🚀 可直接落地的部署与配置指南**：Linux 环境搭建、Spring Boot 项目部署、Logback 日志、阿里云 OSS、JWT 登录校验、Swagger 等"拿来即用"的实战内容；
+- **🧮 算法手撕**：收录 Leetcode 题目的个人理解与解题思路，面试算法环节不慌。
+
+### 学习建议
+1. **先看清单，再学正文**：每篇笔记开头的八股清单就是学习地图，先自测哪些会、哪些不会，再针对性学习；
+2. **口述代替背诵**：面试考察的是表达能力，学完一个知识点尝试自己讲一遍（对着镜子或录音），讲不通就是没懂；
+3. **动手实践**：命令、代码、配置一定要自己敲一遍，尤其是 Linux 部署和中间件安装，纸上得来终觉浅；
+4. **建立知识网络**：Java 基础 → 数据库 → 框架 → 中间件 → 部署是层层递进的关系，按照推荐的阅读顺序学习更连贯；
+5. **面试前快速复盘**：重点复习各篇的"陷阱速记"和"面试重点"，用最少的时间覆盖最高频的考点。
+
+### 关于本人
+本人是一个**西安电子科技大学的计算机科学与技术专业本科在读学生**，自**2025年初**开始学习Java后端开发相关技术栈，**2026年6月**正式开始求职后端开发的实习岗位，毕业时间为**2028年夏季**，目前本人的博客不仅包含学习JavaWeb技术栈的相关知识点总结，同时包括了个人在学习过程中自己开发维护的项目以及平时Vibe Coding的一些小工具，如若您对我的项目感兴趣，可以为我的项目点个Star，这将成为我维护这个博客的最大动力
+
+链接：
+- SwapU云市集 [https://github.com/windyfreez/SwapU](https://github.com/windyfreez/SwapU) 一个面向C2C的物品交易服务平台（作者力推！）
+
+- ProjectPliot：[https://github.com/windyfreez/ProjectPilot](https://github.com/windyfreez/SwapU) Coding工作台，涵盖项目管理、Token用量统计、TodoList记录等功能
 
 ---
 
@@ -16,10 +59,11 @@
 | [MySQL/]( #mysql-数据库 ) | MySQL 数据库核心知识 |
 | [Redis/]( #redis-缓存中间件 ) | Redis 缓存中间件 |
 | [Spring Boot/]( #spring-boot-框架 ) | Spring Boot 开发框架 |
+| [Linux/]( #linux-运维部署 ) | Linux 运维部署：常用命令、VMWare/CentOS 安装、环境搭建与项目部署 |
 | [杂项/]( #杂项-组件配置 ) | Spring Boot 常用组件集成配置 |
 
 
-**推荐阅读顺序：** `Java/` → `MySQL/` → `Redis/` → `Spring Boot/` → `杂项/` 各组件
+
 
 
 ---
@@ -39,6 +83,8 @@ JavaNote/
 │   └── README.md                ← Redis 基础与命令
 ├── Spring Boot/                 ← Spring Boot 框架
 │   └── README.md                ← Spring Boot 开发框架
+├── Linux/                       ← Linux 运维部署
+│   └── README.md                ← 常用命令 / 环境安装 / 项目部署
 └── 杂项/                        ← 组件配置
     ├── Logback.md               ← Logback 日志技术详解
     ├── config-AliyunOSS.md      ← 阿里云 OSS 文件上传
@@ -191,6 +237,39 @@ JavaNote/
 - [@Autowired 与 @Resource 的区别（必背）]( ./Spring%20Boot/README.md#面试重点autowired-与-resource-的区别必背 )
 - [统一异常处理]( ./Spring%20Boot/README.md#2-统一异常处理面试手写代码常考 )
 - [事务管理（传播行为与隔离级别）]( ./Spring%20Boot/README.md#3-事务管理传播行为与隔离级别 )
+
+
+---
+
+
+## Linux/ 运维部署
+
+
+### [README.md]( ./Linux/README.md ) — Linux 运维部署指南
+
+
+> Linux 常用命令、VMWare 虚拟机与 CentOS7 安装、JDK/MySQL/nginx/Redis/RabbitMQ 环境搭建、Spring Boot 项目部署。
+
+
+| 章节 | 跳转 |
+|------|------|
+| 一、Linux 系统基础与常用命令 | [→ 常用命令]( ./Linux/README.md#一、linux-系统基础与常用命令 ) |
+| 二、VMWare 虚拟机安装 | [→ VMWare]( ./Linux/README.md#二、vmware-虚拟机安装 ) |
+| 三、CentOS7 安装与初始化配置 | [→ CentOS7]( ./Linux/README.md#三、centos7-安装与初始化配置 ) |
+| 四、Linux 安装 JDK | [→ JDK]( ./Linux/README.md#四、linux-安装-jdk ) |
+| 五、Linux 安装 MySQL | [→ MySQL]( ./Linux/README.md#五、linux-安装-mysql ) |
+| 六、Linux 安装 nginx | [→ nginx]( ./Linux/README.md#六、linux-安装-nginx ) |
+| 七、Linux 安装 Redis | [→ Redis]( ./Linux/README.md#七、linux-安装-redis ) |
+| 八、Linux 安装 RabbitMQ | [→ RabbitMQ]( ./Linux/README.md#八、linux-安装-rabbitmq ) |
+| 九、Linux 部署 Spring Boot 项目 | [→ 项目部署]( ./Linux/README.md#九、linux-部署-spring-boot-项目 ) |
+| 十、常见问题速查（避坑清单） | [→ 问题速查]( ./Linux/README.md#十、常见问题速查避坑清单 ) |
+
+
+**重点速查：**
+- [文件与目录操作命令]( ./Linux/README.md#2-文件与目录操作 )
+- [权限与用户管理]( ./Linux/README.md#4-权限与用户管理 )
+- [端口占用排查（部署排错必会）]( ./Linux/README.md#6-网络与防火墙 )
+- [Spring Boot 部署（systemd 方式）]( ./Linux/README.md#4-运行方式二systemd-服务生产推荐开机自启-崩溃自动重启 )
 
 
 ---
