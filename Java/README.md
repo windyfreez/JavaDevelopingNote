@@ -184,6 +184,45 @@ System.out.println(c == d); // 通常为 false
 > 2. finally是异常处理的代码块，紧跟try‑catch，无论是否发生异常（除JVM直接退出），代码块都会执行，主要用来做资源关闭释放。
 > 3. finalize()是Object里面的一个protected方法，对象被垃圾回收之前会尝试调用。这是JDK遗留历史机制，不建议业务使用，无法保证执行时机，不能用来做资源释放。
 
+### 13. 数组（Array）详解
+数组是存储**同类型元素**的固定长度容器，下标从0开始，创建后长度不可变。
+- 三种创建方式：`int[] a = new int[3];`、`int[] b = {1,2,3};`、`int[] c = new int[]{1,2,3};`
+- 基本类型数组默认值：int→0、double→0.0、boolean→false、char→'\u0000'；引用类型数组默认`null`；
+- 数组是对象，`length`是属性不是方法；越界访问抛出`ArrayIndexOutOfBoundsException`；
+- 常用工具类`Arrays`：`toString`、`sort`、`binarySearch`（二分查找，要求先排序）、`copyOf`扩容复制、`fill`填充、`equals`比较。
+
+> 🎯【面试题】数组和集合的区别？
+> 参考答案：数组长度固定，创建后不能扩容；集合长度动态可变，会自动扩容。数组可以存储基本类型和引用类型；集合只能存储引用类型（基本类型自动装箱）。数组访问效率高、内存连续；集合功能更丰富，提供增删改查、排序、去重等API。业务开发绝大多数场景使用集合。
+
+> 补充：`Arrays.asList()`返回的是**固定大小**列表，不能执行add/remove，否则抛`UnsupportedOperationException`。
+
+### 14. 字符串常量池与 String 不可变原理
+> 🎯【面试题】String 为什么不可变？有什么好处？
+> 参考答案：String类被`final`修饰，类不能被继承；内部字符数组被`final`修饰，并且**没有提供任何修改字符数组的入口**（concat、replace、substring等所有"修改"操作都会返回新对象）。不可变的好处：1. 字符串常量池可以安全复用同一对象，节省内存；2. 作为HashMap的key安全，hashCode可以缓存，不会因内容变化导致哈希错乱；3. 线程安全，多线程共享无需加锁。
+
+**字符串常量池**（JDK7及之后位于堆中，之前位于方法区PermGen）：
+- 双引号字面量直接去常量池查找，存在则复用，不存在则创建入池；
+- `new String("abc")`：在堆中新建一个对象（不放入常量池），同时"abc"字面量会在常量池创建；
+- `intern()`：手动把字符串加入常量池，若池中已有相同内容则直接返回池中引用。
+
+```java
+String s1 = "abc";                 // 常量池对象
+String s2 = "abc";                 // 复用常量池对象
+System.out.println(s1 == s2);      // true
+String s3 = new String("abc");     // 堆上新对象
+System.out.println(s1 == s3);      // false
+System.out.println(s1 == s3.intern()); // true，intern返回常量池引用
+```
+
+### 15. BigDecimal 精度问题（金额计算必用）
+> 🎯【面试题】float和double为什么会有精度问题？金额计算怎么保证精度？
+> 参考答案：二进制无法精确表示所有十进制小数（例如0.1在二进制中是无限循环小数），float/double按二进制浮点数存储，运算会产生精度丢失。金额等精确计算必须使用BigDecimal，并且**必须用字符串构造**：`new BigDecimal("0.1")`，不能`new BigDecimal(0.1)`（传入double本身已经失真）。
+
+- 常用运算：`add`加、`subtract`减、`multiply`乘、`divide`除（**除法必须指定精度和舍入模式**，否则除不尽抛`ArithmeticException`）；
+- 比较大小用`compareTo`，不要用`equals`（equals会比较精度标度，`1.0`和`1.00`不相等）；
+- 保留小数：`setScale(2, RoundingMode.HALF_UP)`四舍五入；
+- 开发规范：数据库金额字段用`DECIMAL`，实体类用`BigDecimal`；JSON序列化注意精度丢失问题（前端可传字符串）。
+
 ## 二、面向对象基础
 ### 1. 封装、继承、多态定义
 面向对象三大特性：封装、继承、多态。
@@ -281,6 +320,44 @@ class Duck implements Flyable, Swimmable {
     public void swim() { System.out.println("鸭子在游泳"); }
 }
 ```
+
+### 8. 内部类详解
+定义在类内部的类叫内部类，分为四种：
+1. **成员内部类**：定义在类内部、方法外。持有外部类引用（Outer.this），可以访问外部类所有成员（包括private）；创建方式`外部类.new 内部类()`，必须先有外部类对象；
+2. **静态内部类**：用`static`修饰，不持有外部类引用，只能访问外部类静态成员；创建方式`new 外部类.内部类()`，不需要外部类对象；
+3. **局部内部类**：定义在方法内部，作用域只限当前方法；
+4. **匿名内部类**：没有类名的局部内部类，常用于接口/抽象类的一次性实现，是Lambda表达式的"前身"。
+
+> 🎯【面试题】局部内部类和匿名内部类访问外部局部变量，为什么要求变量是final的？
+> 参考答案：局部变量存在栈上，方法执行完毕就销毁；而内部类对象可能逃逸到堆中长期存活。为了内部类对象在方法结束后仍能使用该变量，编译器会把局部变量复制一份到内部类对象中；如果变量后续被修改，内外两份数据会不一致，所以要求变量不可变（final或effectively final），保证复制值与原值一致。
+
+### 9. 对象排序：Comparable 与 Comparator
+> 🎯【面试题】Comparable和Comparator的区别？
+> 参考答案：Comparable是"自然排序"，定义在实体类内部，实现`compareTo`方法，类自己具备比较能力，一个类只能有一种自然排序；Comparator是"外部比较器"，单独定义比较规则，不侵入实体类，可以为同一个类定义多种排序规则。优先使用Comparator，符合开闭原则，避免修改实体类。
+
+```java
+// Comparable：类内部实现自然排序（按年龄升序）
+class User implements Comparable<User> {
+    private int age;
+    @Override
+    public int compareTo(User o) { return Integer.compare(this.age, o.age); }
+}
+
+// Comparator：外部比较器（按姓名降序）
+Comparator<User> byNameDesc = (u1, u2) -> u2.getName().compareTo(u1.getName());
+Collections.sort(list, byNameDesc);
+list.stream().sorted(Comparator.comparing(User::getAge).reversed());
+```
+- 返回负数表示小于、0相等、正数大于；**注意不要写`this.age - o.age`，可能整数溢出**，推荐`Integer.compare`；
+- TreeSet / TreeMap / Collections.sort / Stream.sorted 都依赖这两个接口。
+
+### 10. 深拷贝与浅拷贝（clone）
+> 🎯【面试题】浅拷贝和深拷贝的区别？如何实现深拷贝？
+> 参考答案：浅拷贝只复制对象本身，对象内部引用类型的成员变量仍然指向同一个对象；深拷贝连内部引用对象也一起复制，得到完全独立的新对象。Object.clone()默认是浅拷贝，并且类必须实现`Cloneable`标记接口，否则抛`CloneNotSupportedException`。
+
+- 浅拷贝：重写`clone()`，默认`super.clone()`即可；
+- 深拷贝实现方式：1. 在clone()里手动new内部对象逐个复制；2. 对象流序列化反序列化（要求所有成员实现Serializable）；3. 第三方工具（JSON序列化、BeanUtils.copyProperties仅浅拷贝）；
+- 注意：`Arrays.copyOf`、`list.addAll`等都是浅拷贝，修改元素内容会互相影响；String/包装类不可变，浅拷贝也不会出问题。
 
 ## 三、面向对象高级特性与多态
 ### 1. 编译时多态？运行时多态？
@@ -550,6 +627,14 @@ for (Map.Entry<String, String> entry : map.entrySet()) {
 }
 ```
 
+#### 2.4 迭代器与 fail-fast / fail-safe 机制
+Iterator迭代器三个核心方法：`hasNext()`是否有下一个、`next()`获取下一个元素、`remove()`删除当前元素。
+- 增强for循环底层就是Iterator，遍历过程中直接调用集合的add/remove会抛`ConcurrentModificationException`并发修改异常；
+- 正确删除方式：迭代器自己的`iterator.remove()`（ArrayList）或`removeIf`。
+
+> 🎯【面试题】什么是fail-fast？什么是fail-safe？
+> 参考答案：fail-fast快速失败，是ArrayList、HashMap等普通集合的机制。集合内部维护`modCount`修改计数器，迭代器创建时记录初始modCount，每次next()都会校验，一旦发现modCount变化立即抛ConcurrentModificationException，防止遍历过程数据错乱。fail-safe安全失败，是CopyOnWriteArrayList、ConcurrentHashMap等并发容器的机制，遍历的是原数组快照（或弱一致性迭代器），遍历过程允许并发修改不抛异常，但读取到的可能不是最新数据。
+
 #### 集合总览对比表
 | 集合                  | 底层结构          | 是否有序    | 是否重复    | 线程安全 |
 | ------------------- | ------------- | ------- | ------- | ---- |
@@ -778,6 +863,14 @@ synchronized可以修饰实例方法（锁this对象）、静态方法（锁Clas
 > 🎯【面试题】synchronized为什么支持可重入？
 > 参考答案：同一个线程拿到对象监视器锁之后，再次进入同步块不会阻塞；对象头会记录持有锁的线程、锁计数，进入计数+1，退出计数‑1，计数归零锁才释放。
 
+### 3.1 synchronized 锁升级（偏向锁、轻量级锁、重量级锁）
+> 🎯【面试题】synchronized的锁升级过程？为什么要有锁升级？
+> 参考答案：JDK6之后synchronized做了锁优化，锁存在"无锁→偏向锁→轻量级锁→重量级锁"的升级过程（面试口径：锁只能升级、不轻易降级）：
+> 1. **偏向锁**：只有一个线程反复进入同步块时，把线程ID记录在对象头MarkWord里，后续该线程再次进入无需CAS，性能最高；
+> 2. **轻量级锁**：出现第二个线程竞争时，偏向锁撤销升级为轻量级锁，通过CAS自旋尝试获取锁，自旋占用CPU但避免线程阻塞，适合锁竞争不激烈、持锁时间短的场景；
+> 3. **重量级锁**：自旋超过阈值（或自旋线程过多）升级为重量级锁，依赖操作系统互斥量（monitor），未抢到锁的线程进入阻塞队列，涉及用户态内核态切换，开销最大。
+> 锁状态记录在对象头**MarkWord**中；可用`-XX:-UseBiasedLocking`关闭偏向锁。
+
 ### 4 volatile深入
 volatile只能保证可见性、禁止指令重排序，**不能保证复合操作原子性**，例如count++分为读取、计算、写回三步，多线程依然会丢失更新。底层依靠内存屏障限制CPU、编译器重排序。
 
@@ -824,6 +917,56 @@ volatile只能保证可见性、禁止指令重排序，**不能保证复合操�
 > CountDownLatch：一个或者多个线程等待其他N个线程完成，计数器只能递减，不能重置复用；
 > CyclicBarrier：N个线程互相等待全部到达屏障点之后再继续执行，计数器可以循环复用；
 > Semaphore：控制同时访问资源的线程许可数量，做限流。
+
+### 7.6 线程的创建方式（Callable 与 FutureTask）
+> 🎯【面试题】创建线程有哪几种方式？
+> 参考答案：四种方式——1. 继承Thread类重写run()；2. 实现Runnable接口；3. 实现Callable接口配合FutureTask，能返回结果、能抛异常；4. 线程池ExecutorService提交任务。推荐实现接口和线程池：Java单继承，继承Thread会占用继承位；接口方式解耦便于复用；线程池统一管理线程生命周期，避免频繁创建销毁。
+
+```java
+// 方式三：Callable + FutureTask，可以获取返回值
+Callable<Integer> task = () -> {
+    Thread.sleep(1000);
+    return 100;
+};
+FutureTask<Integer> futureTask = new FutureTask<>(task);
+new Thread(futureTask, "compute-thread").start();
+Integer result = futureTask.get(); // 阻塞等待结果
+```
+- `get()`会阻塞当前线程直到任务完成；也可`get(timeout, unit)`限时等待，超时抛TimeoutException；
+- 守护线程（daemon）：`thread.setDaemon(true)`，守护线程服务于其他线程，主线程结束守护线程随之结束，GC线程就是典型守护线程。
+
+### 7.7 线程的生命周期与状态
+> 🎯【面试题】线程有哪几种状态？状态之间如何流转？
+> 参考答案：Java线程共6种状态（Thread.State枚举）：
+> 1. **NEW新建**：new出Thread对象，还没调用start()；
+> 2. **RUNNABLE就绪/运行**：调用start()后进入，等待CPU调度执行（Runnable同时包含就绪和运行两种OS状态）；
+> 3. **BLOCKED阻塞**：等待获取monitor锁进入同步块/方法时阻塞；
+> 4. **WAITING等待**：无期限等待，`wait()`、`join()`、`LockSupport.park()`进入，需要其他线程唤醒；
+> 5. **TIMED_WAITING计时等待**：有期限等待，`sleep(ms)`、`wait(timeout)`、`join(ms)`进入，时间到自动唤醒；
+> 6. **TERMINATED终止**：run()正常执行完毕或抛出未捕获异常。
+
+状态流转口诀：NEW调start进RUNNABLE；抢锁失败进BLOCKED；wait/join/park进WAITING；sleep/带参wait进TIMED_WAITING；notify/notifyAll/unpark/超时回到RUNNABLE；run结束进TERMINATED。
+
+> ⚠️注意：调用`start()`才是启动新线程；直接调用`run()`只是在当前线程执行普通方法，不会创建新线程。
+
+### 7.8 sleep、wait、join 的区别与线程通信
+> 🎯【面试题】sleep()和wait()有什么区别？
+> 参考答案：
+> 1. 所属类不同：sleep是Thread的静态方法；wait是Object的实例方法；
+> 2. 锁的释放：sleep不释放已持有的锁；wait会释放对象锁，让其他线程进入同步块；
+> 3. 使用位置：sleep可以在任何地方使用；wait必须配合synchronized同步块使用，否则抛IllegalMonitorStateException；
+> 4. 唤醒方式：sleep到时间自动唤醒；wait需要notify/notifyAll唤醒或带超时时间；
+> 5. join()：Thread的方法，当前线程等待调用join的线程执行完毕，如`t.join()`主线程等t线程结束；join(ms)限时等待。
+
+> 🎯【面试题】wait/notify实现线程通信的原理？
+> 参考答案：wait/notify必须成对出现在synchronized同步代码块中。线程执行wait()会释放对象锁并进入该对象的等待集（WaitSet）；其他线程拿到锁后执行notify()唤醒等待集中的一个线程（notifyAll唤醒全部），被唤醒线程需要重新竞争对象锁才能继续执行。经典应用：生产者-消费者模型；现代开发推荐使用`BlockingQueue`（ArrayBlockingQueue/LinkedBlockingQueue）替代手写wait/notify，更安全简洁。
+
+### 7.9 死锁（Deadlock）
+> 🎯【面试题】什么是死锁？产生的四个必要条件？如何避免？
+> 参考答案：死锁是多个线程互相持有对方需要的锁、互相等待对方释放，导致所有线程都无法继续执行的现象。四个必要条件：互斥（资源只能被一个线程占用）、请求与保持（持有资源的同时请求新资源）、不可剥夺（资源只能主动释放）、循环等待（形成环路）。避免死锁的思路：破坏任意一个条件即可，工程上最常用的是**破坏循环等待——所有线程按同一固定顺序加锁**（如统一先锁A再锁B）；同时缩短持锁时间、减少锁粒度、使用tryLock超时抢锁。
+
+- 排查命令：`jps`查进程号 → `jstack <pid>`查看线程栈，出现"Found one Java-level deadlock"即死锁，能看到互相等待的锁和线程；
+- 实际业务中死锁往往来自**锁顺序不一致**（A线程先锁A再锁B，B线程先锁B再锁A）。
 
 ## 八、JVM
 ### 1. JVM 运行时内存区域
@@ -887,6 +1030,24 @@ new对象完整流程：类加载校验 → 分配内存空间 → 内存赋零�
 ### 11. 常见JVM异常
 StackOverflowError栈溢出；OutOfMemoryError内存溢出；内存泄漏对象无用但是仍被引用，GC无法回收。
 
+### 12. JVM 常用调优参数与 OOM 排查
+**常用启动参数（生产必须显式配置）：**
+```bash
+-Xms2g          # 初始堆大小（建议与-Xmx一致，避免扩容抖动）
+-Xmx2g          # 最大堆大小
+-Xmn512m        # 新生代大小
+-Xss512k        # 每个线程栈大小
+-XX:MetaspaceSize=256m
+-XX:MaxMetaspaceSize=512m   # 元空间上限，防止类加载过多撑爆本地内存
+-XX:+UseG1GC                # 使用G1收集器
+-XX:MaxGCPauseMillis=200    # G1期望最大停顿时间
+-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/data/dump/  # OOM自动导出堆快照
+-XX:+PrintGCDetails -Xloggc:/data/logs/gc.log                  # 打印GC日志
+```
+
+> 🎯【面试题】线上OOM怎么排查？
+> 参考答案：1. 先看报错类型：堆OOM（对象太多/内存泄漏）、元空间OOM（动态生成类过多，如反射/CGLIB）、栈溢出（递归过深）；2. 用`jps`定位进程，`jstack`看线程栈，`jmap -heap <pid>`看堆使用，`jmap -dump:format=b,file=heap.hprof <pid>`导出堆快照；3. 用MAT（Memory Analyzer）分析hprof文件，找占用内存最大的对象（Dominator Tree），追踪GC Roots引用链定位泄漏点。常见泄漏：静态集合缓存不清理、ThreadLocal不remove、连接/流未关闭、监听器未注销。
+
 ## 九、Java 8
 1. Lambda表达式，简化函数式接口匿名内部类写法。
 2. 函数式接口：只有一个抽象方法，@FunctionalInterface标记；常用Predicate、Function、Consumer、Supplier。
@@ -899,6 +1060,20 @@ StackOverflowError栈溢出；OutOfMemoryError内存溢出；内存泄漏对象�
 
 4. Optional容器类，用来包装可为null的值，减少空指针。
 5. 方法引用`::`，简化lambda写法。
+6. 日期时间 API（LocalDate / LocalDateTime / Duration / Period）
+> 🎯【面试题】为什么用新日期时间API替代Date和Calendar？
+> 参考答案：旧的Date/Calendar存在严重设计缺陷：可变对象（多线程共享不安全）、月份从0开始、SimpleDateFormat线程不安全、设计混乱（Date既表示日期又表示时间戳）。Java8引入`java.time`包：所有对象不可变、线程安全；LocalDate日期、LocalTime时间、LocalDateTime日期时间、Instant时间戳、Duration秒级时长、Period天级时长。
+
+```java
+LocalDateTime now = LocalDateTime.now();                 // 当前时间
+LocalDateTime time = LocalDateTime.of(2026, 8, 25, 10, 30); // 指定时间
+LocalDateTime tomorrow = now.plusDays(1);                // 加一天，返回新对象
+String str = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+LocalDateTime parsed = LocalDateTime.parse("2026-08-25 10:30:00",
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+System.out.println(Duration.between(now, tomorrow).toHours()); // 时长
+```
+> 注意：格式化统一使用线程安全的`DateTimeFormatter`（不可变）；不要多线程共享`new SimpleDateFormat()`。
 
 ### Java9‑Java21新特性简要
 - Java9：模块化、Stream增强

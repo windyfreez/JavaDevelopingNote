@@ -76,6 +76,7 @@ dao层也叫mapper层（MyBatis场景）即数据访问层，专门负责和数�
 - `@NoArgsConstructor`：生成无参构造方法；很多框架反射实例化对象依赖无参构造；
 - `@AllArgsConstructor`：生成全参构造方法；
 > 注意：使用`@Data`不代表可以完全不写构造；如果同时写`@AllArgsConstructor`，默认无参构造会消失，建议实体类同时加上`@NoArgsConstructor`。
+> 补充：其他常用Lombok注解——`@Slf4j`自动生成log日志对象（`log.info(...)`直接用）；`@Builder`生成建造者模式，链式赋值`User.builder().name("张三").build()`；`@EqualsAndHashCode(callSuper = true)`解决继承场景下equals漏掉父类字段的问题；`@Accessors(chain = true)`让setter支持链式调用。
 
 ### 4.两个Controller层当中的注解
 ```java
@@ -556,5 +557,308 @@ public class BookAdvice {
 > 🎯【面试题】切入点execution表达式语法？
 > `execution(返回值 包.类.方法(参数))`；`*`通配任意返回值、任意类、任意方法；`..`代表任意参数。
 
+**execution 表达式完整语法：**
+```text
+execution(访问修饰符? 返回值类型 包名.类名.方法名(参数类型) 异常?)
+```
+| 写法 | 含义 |
+|---|---|
+| `execution(public * com.itheima.service.*.*(..))` | 匹配service包下所有类的所有public方法（不包含子包） |
+| `execution(* com.itheima.service..*.*(..))` | 包名后`..`匹配包及其子包 |
+| `execution(* com.itheima.service.UserService.*(..))` | 匹配UserService类的所有方法 |
+| `execution(* com.itheima.service.UserService.get*(..))` | 匹配以get开头的方法 |
+| `execution(* *.*(..))` | 匹配所有类的所有方法（慎用，影响面过大） |
+| `within(com.itheima.controller..*)` | 按类型范围匹配 |
+| `@annotation(Log)` | 按注解匹配（注解切点更优雅，业务常用） |
+> 注意：`..`代表任意参数或任意子包；`*`代表任意返回值、任意类、任意方法；`&&`、`||`、`!`可以组合多个切点表达式。
+
+
+## 八、配置绑定与配置文件
+
+### 1. @Value 与 @ConfigurationProperties 的区别（面试必考）
+> 🎯【面试题】@Value和@ConfigurationProperties有什么区别？
+> 参考答案：
+> 1. @Value是Spring的简单注入注解，逐字段从配置文件取值，支持占位符`${...}`，适合少量零散配置；
+> 2. @ConfigurationProperties是Spring Boot的**类型安全配置绑定**，把一段配置前缀整体映射到实体类，自动完成类型转换、复杂结构（List/Map/嵌套对象）绑定、支持数据校验（@Validated + @NotNull）；
+> 3. 复杂关联配置用@ConfigurationProperties，代码更规范，还能复用配置类。
+
+```java
+// application.yml
+// myapp:
+//   name: itheima
+//   servers:
+//     - 192.168.1.1
+//     - 192.168.1.2
+
+@Component
+@ConfigurationProperties(prefix = "myapp") // 绑定myapp前缀
+@Data
+public class MyAppProperties {
+    private String name;
+    private List<String> servers;
+}
+```
+> 使用方式：配置类加`@Component`自动注册，或在配置类上加`@EnableConfigurationProperties(MyAppProperties.class)`；Spring Boot 2.2+推荐`@ConfigurationPropertiesScan`扫描。
+
+### 2. yml 与 properties 配置文件对比
+> 🎯【面试题】yml和properties有什么区别？
+> 参考答案：properties是`key=value`扁平格式；yml基于缩进的层级结构，**天然支持嵌套对象、数组、多环境，可读性更好**，是Spring Boot官方推荐的默认格式。注意yml**缩进只能使用空格、不能使用Tab**，且key冒号后必须有空格。同一配置在两者中同时存在时，**properties优先级高于yml**。
+> 配置加载优先级（从高到低）：命令行参数 > Java系统属性 > 环境变量 > application-{profile}.yml > application.yml > 默认配置，高优先级覆盖低优先级。
+
+### 3. Profile 多环境配置
+```yaml
+# application.yml
+spring:
+  profiles:
+    active: dev   # 激活dev环境，也可以启动时用 --spring.profiles.active=prod 覆盖
+```
+- 环境配置文件：`application-dev.yml`（开发）、`application-prod.yml`（生产）、`application-test.yml`（测试），Spring Boot按`application-{profile}.yml`自动加载；
+- 常用隔离内容：数据源、Redis地址、日志级别、第三方密钥按环境拆分，**生产密钥绝不提交到代码仓库**；
+- 单文件多文档块写法：yml中用`---`分隔多个profile块（`spring.config.activate.on-profile`）。
+
+---
+
+## 九、统一异常处理（@RestControllerAdvice）
+
+### 1. 为什么需要全局异常处理
+Controller层不处理异常直接抛给框架，会返回默认错误页/默认JSON，格式不统一，前端无法解析；且异常堆栈直接暴露给用户不安全。企业做法是**全局异常处理器统一捕获、统一响应格式**（如`{code, msg, data}`），同时记录日志方便排查。
+
+### 2. 统一异常处理（面试手写代码常考）
+```java
+@Slf4j
+@RestControllerAdvice // 全局异常处理，作用于所有Controller
+public class GlobalExceptionHandler {
+
+    // 处理自定义业务异常
+    @ExceptionHandler(BusinessException.class)
+    public Result handleBusinessException(BusinessException e) {
+        log.warn("业务异常：{}", e.getMessage());
+        return Result.error(e.getCode(), e.getMessage());
+    }
+
+    // 参数校验异常（@Validated触发）
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public Result handleValidException(MethodArgumentNotValidException e) {
+        String msg = e.getBindingResult().getFieldError().getDefaultMessage();
+        return Result.error(400, msg);
+    }
+
+    // 兜底异常：所有未匹配的异常统一走这里
+    @ExceptionHandler(Exception.class)
+    public Result handleException(Exception e) {
+        log.error("系统异常", e);
+        return Result.error(500, "系统繁忙，请稍后重试");
+    }
+}
+```
+> 注意：`@ExceptionHandler`匹配规则按**异常类型就近原则**——子类异常优先匹配更具体的处理方法；`@RestControllerAdvice`同时支持`basePackages`限定作用范围。
+
+### 3. 拦截边界限制（陷阱速记）
+> ⚠️ `@RestControllerAdvice` 只能捕获**进入Spring MVC流程的异常**，以下场景拦截不到（必须单独处理）：
+> 1. Filter过滤器中抛出的异常（Filter在DispatcherServlet之前执行，需要Filter自己try-catch或交给容器错误页）；
+> 2. 定时任务@Scheduled方法内异常（不经过Controller，需任务内部try-catch）；
+> 3. @Async异步线程抛出的异常（异步线程不属于请求线程，需在异步方法内部处理或自定义AsyncUncaughtExceptionHandler）；
+> 4. 拦截器preHandle返回false之前抛出的异常。
+
+---
+
+## 十、声明式事务管理（@Transactional）
+
+### 1. @Transactional 使用与回滚规则
+```java
+@Service
+public class OrderService {
+
+    @Transactional(rollbackFor = Exception.class) // 建议显式指定
+    public void createOrder(Order order) {
+        orderMapper.insert(order);      // 生成订单
+        stockMapper.decrease(...);      // 扣减库存
+        // 任一步抛异常，全部回滚
+    }
+}
+```
+> 🎯【面试题】@Transactional默认什么异常才回滚？为什么？
+> 参考答案：默认只回滚**运行时异常（RuntimeException）和Error**，不回滚编译期受检异常（CheckedException）。因为Spring默认`rollbackFor = RuntimeException.class`，受检异常被视为"业务可恢复"。**开发规范：统一写`@Transactional(rollbackFor = Exception.class)`**，保证所有异常都回滚。
+> 原理：Spring通过AOP动态代理生成代理对象，方法执行前开启事务、正常返回提交、抛异常回滚。**注意必须通过代理对象调用**，同类内部`this.method()`直接调用不走代理，事务失效。
+
+### 2. 事务失效场景汇总（面试必背）
+1. **同类内直接调用**：`this.xxx()`不走代理，事务失效（注入自己的代理对象或用AopContext.currentProxy()）；
+2. **方法不是public**：@Transactional只能作用在public方法上，private/protected不生效；
+3. **异常被try-catch吞掉**：方法内部捕获异常没有抛出，Spring感知不到异常，不会回滚；
+4. **抛出受检异常且未指定rollbackFor**：默认不回滚；
+5. **数据库不支持事务**：MyISAM引擎不支持事务；
+6. **类没有被Spring管理**：没有@Component/@Service注解，或没被扫描到；
+7. **传播行为设置错误**：如REQUIRES_NEW内部方法新开事务，外层回滚不影响已提交的内层事务。
+
+### 3. 事务管理（传播行为与隔离级别）
+> 🎯【面试题】事务的传播行为有哪些？实际怎么用？
+> 参考答案：传播行为（Propagation）定义**方法被另一个事务方法调用时事务如何传播**，常用：
+> - **REQUIRED（默认）**：当前有事务就加入，没有就新建——大多数业务用这个；
+> - **REQUIRES_NEW**：无论如何都新建独立事务，外层事务挂起，内层提交/回滚互不影响——用于日志记录、独立操作；
+> - **NESTED**：嵌套事务，内层回滚只回滚到保存点，不影响外层——批量任务部分失败场景；
+> - **SUPPORTS**：有事务就加入，没有就以非事务方式执行；
+> - **NOT_SUPPORTED**：以非事务方式执行，挂起当前事务；
+> - **MANDATORY**：必须有事务，没有则抛异常；
+> - **NEVER**：必须没有事务，有则抛异常。
+
+**事务隔离级别**：`@Transactional(isolation = Isolation.READ_COMMITTED)`对应MySQL四种隔离级别（读未提交/读已提交/可重复读/串行化），MySQL默认RR；Spring默认使用数据库默认级别，一般不需要手动指定。
+
+> ⚠️ 常见坑：**REQUIRES_NEW与自调用**组合会失效；事务内远程调用（RPC/HTTP）超时无法回滚——远程调用结果无法回滚，应把远程调用放在事务外或采用补偿机制；事务方法内不要做耗时操作（持锁时间越长，死锁概率越高）。
+
+---
+
+## 十一、Spring MVC 请求处理流程与 RESTful
+
+### 1. DispatcherServlet 请求处理流程（面试高频）
+> 🎯【面试题】一次HTTP请求在Spring MVC中是如何被处理的？
+> 参考答案：核心是前端控制器DispatcherServlet，完整链路：
+> 1. 请求到达 **DispatcherServlet**（前端控制器，所有请求的总入口）；
+> 2. DispatcherServlet 调用 **HandlerMapping** 查找匹配的Handler（根据URL找到对应Controller方法）；
+> 3. 找到后通过 **HandlerAdapter** 适配执行Handler，调用Controller方法前完成参数绑定（@RequestParam/@RequestBody等解析）、数据校验；
+> 4. Controller方法执行完返回数据（@ResponseBody直接序列化JSON返回；返回视图名则交给视图解析）；
+> 5. **ViewResolver** 视图解析（返回页面时）；响应写回客户端。
+> 流程图：`请求 → DispatcherServlet → HandlerMapping → HandlerAdapter → Controller → 返回 → DispatcherServlet → 响应`。
+> 扩展：Interceptor拦截器在HandlerAdapter执行前/后介入（preHandle/postHandle/afterCompletion）；Filter过滤器在DispatcherServlet之前执行。
+
+### 2. RESTful 接口设计思想
+> 🎯【面试题】什么是RESTful？设计规范有哪些？
+> 参考答案：RESTful是一种**基于资源的接口设计风格**，用HTTP方法表达对资源的操作，URL只描述资源名词、不出现动词：
+> - `GET /users` 查询用户列表；`GET /users/{id}` 查询单个；`POST /users` 新增；`PUT /users/{id}` 整体更新；`PATCH /users/{id}` 部分更新；`DELETE /users/{id}` 删除；
+> - 资源用**复数名词**，层级关系用`/`（如`/users/{id}/orders`）；
+> - 通过**状态码**表达结果：200成功、201创建成功、400参数错误、401未认证、403无权限、404资源不存在、500服务器错误；
+> - 无状态：服务端不保存客户端会话状态（配合JWT使用）；
+> - 版本管理：`/api/v1/users`。
+> 优势：语义清晰、前后端约定统一、天然支持缓存（GET可缓存）。
+
+### 3. 常用HTTP状态码速记
+| 状态码 | 含义 | 典型场景 |
+|---|---|---|
+| 200 | OK成功 | 查询/更新成功 |
+| 201 | Created已创建 | POST新增成功 |
+| 400 | Bad Request参数错误 | 参数缺失/格式错误 |
+| 401 | Unauthorized未认证 | 未登录/token失效 |
+| 403 | Forbidden无权限 | 已登录但无操作权限 |
+| 404 | Not Found资源不存在 | URL或资源不存在 |
+| 405 | Method Not Allowed方法不允许 | 路径对但请求方式错 |
+| 500 | 服务器内部错误 | 代码异常 |
+| 502/503 | 网关/服务不可用 | 服务宕机、限流 |
+
+---
+
+## 十二、跨域处理（CORS）
+
+### 1. 什么是跨域
+浏览器**同源策略**：协议、域名、端口任一不同即为跨域（如前端`localhost:5173`调后端`localhost:8080`）。跨域时浏览器会拦截响应，报"CORS policy"错误。**注意：跨域限制是浏览器的行为，服务端之间调用、Postman/curl都不存在跨域问题。**
+
+### 2. 三种解决方式
+**方式一：@CrossOrigin 注解（局部）**
+```java
+@CrossOrigin(origins = "http://localhost:5173")
+@GetMapping("/user")
+public Result getUser() { ... }
+```
+
+**方式二：全局配置（企业推荐，统一管理）**
+```java
+@Configuration
+public class CorsConfig implements WebMvcConfigurer {
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")                    // 允许所有路径
+                .allowedOriginPatterns("*")           // 允许来源（生产限定具体域名）
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)               // 允许携带Cookie
+                .maxAge(3600);                        // 预检请求缓存时间
+    }
+}
+```
+
+**方式三：CorsFilter（Spring Boot 2.4+ 推荐，与Spring Security配合时也必须用它）**
+```java
+@Bean
+public CorsFilter corsFilter() {
+    CorsConfiguration config = new CorsConfiguration();
+    config.addAllowedOriginPattern("*");
+    config.addAllowedMethod("*");
+    config.addAllowedHeader("*");
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", config);
+    return new CorsFilter(source);
+}
+```
+> ⚠️ 注意点：携带Cookie时`allowedOrigins("*")`会失效，必须用`allowedOriginPatterns("*")`并`allowCredentials(true)`；生产环境不要放开`*`，应配置具体域名白名单；跨域≠安全问题，真正的防护是鉴权（JWT/登录校验）。
+
+---
+
+## 十三、异步任务（@Async）
+
+### 1. 基本使用
+```java
+@EnableAsync // 主启动类开启异步支持
+@SpringBootApplication
+public class Application { ... }
+
+@Service
+public class NotifyService {
+    @Async // 异步执行，不阻塞调用方
+    public void sendSms(String phone) {
+        // 模拟耗时短信发送
+    }
+}
+```
+> 应用场景：短信/邮件通知、日志上报、非核心业务（与主流程无关的操作）、消息推送等耗时且不影响主流程的操作。
+
+### 2. 自定义线程池（生产必须）
+默认@Async使用Spring内置SimpleAsyncTaskExecutor，**每次任务都新建线程，不推荐生产使用**。必须自定义线程池：
+```java
+@Configuration
+public class AsyncConfig {
+    @Bean("taskExecutor")
+    public ThreadPoolTaskExecutor taskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(20);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("async-task-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        return executor;
+    }
+}
+// 使用时指定线程池：@Async("taskExecutor")
+```
+
+### 3. 注意事项（面试坑点）
+1. **同类内自调用失效**：`this.sendSms()`不走代理，@Async不生效（与@Transactional同理）；
+2. **异常处理**：异步方法无返回值时异常默认被吞掉，需要`AsyncUncaughtExceptionHandler`或返回Future/CompletableFuture捕获；
+3. **事务与异步**：@Async方法内的@Transactional不生效（异步线程没有代理事务上下文），需要数据一致性的操作不能直接异步；
+4. **线程池隔离**：核心业务和异步任务建议使用不同线程池，防止异步任务打满线程池影响主业务。
+
+---
+
+## 十四、条件注解与 Spring Boot 启动流程
+
+### 1. 条件注解 @ConditionalOnXxx（自动配置的基石）
+> 🎯【面试题】@ConditionalOnClass和@ConditionalOnMissingBean作用？
+> 参考答案：条件注解根据条件决定是否装配Bean，是Spring Boot自动配置的核心机制：
+> - `@ConditionalOnClass`：classpath下存在某个类才装配（如引入redis-starter才装配RedisTemplate）；
+> - `@ConditionalOnMissingBean`：容器中没有某个Bean才装配（允许用户自定义Bean覆盖默认配置）；
+> - `@ConditionalOnProperty`：配置项满足条件才装配（如`prefix="myapp", name="enabled", havingValue="true"`）；
+> - `@ConditionalOnWebApplication`：是Web应用才装配。
+> 典型应用：RedisAutoConfiguration上标注`@ConditionalOnClass(RedisOperations.class)`+`@ConditionalOnMissingBean(RedisTemplate.class)`——引入依赖自动配置，用户自定义则覆盖。
+
+### 2. Spring Boot 启动流程（SpringApplication.run 做了什么）
+> 🎯【面试题】SpringApplication.run()的执行流程？
+> 参考答案：核心步骤：
+> 1. 判断应用类型（Web/非Web，Servlet还是Reactive）；
+> 2. 加载SpringApplicationRunListeners（广播启动事件）；
+> 3. 准备Environment环境（读取配置文件application.yml，激活profile）；
+> 4. 创建并初始化ApplicationContext容器（**核心**：Bean定义扫描注册 → 自动配置类通过@EnableAutoConfiguration加载，按条件注解选择性装配）；
+> 5. 容器刷新（实例化所有单例Bean，完成依赖注入、AOP代理创建）；
+> 6. 启动完成，执行ApplicationRunner/CommandLineRunner回调；
+> 7. 返回ApplicationContext，应用对外提供服务。
+> **自动装配原理一句话**：`@EnableAutoConfiguration`通过`@Import(AutoConfigurationImportSelector.class)`读取`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`（Spring Boot 2.7+，旧版为spring.factories）中的自动配置类列表，再用`@ConditionalOnXxx`条件注解按需装配——**引入starter依赖 → 自动配置类生效 → Bean装配进容器**。
+> 补充：BeanFactory是IOC容器的最底层接口，ApplicationContext是它的增强版（额外提供国际化、事件发布、资源加载、环境抽象），日常使用的都是ApplicationContext。
 
 # 📋 SpringBoot 高频八股总复习清单

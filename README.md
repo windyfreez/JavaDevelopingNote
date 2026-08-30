@@ -68,6 +68,9 @@ JavaNote/
 | 五、输入输出文件流 (I/O) | [→ I/O 流]( ./Java/README.md#五、-输入输出文件流-io ) |
 | 六、枚举与程序初始化顺序 | [→ 枚举与初始化]( ./Java/README.md#六、-枚举与程序初始化顺序 ) |
 | 七、多线程与图形用户界面 (GUI) | [→ 多线程与 GUI]( ./Java/README.md#七、-多线程与图形用户界面-gui ) |
+| 八、JVM | [→ JVM]( ./Java/README.md#八、jvm ) |
+| 九、Java 8 新特性 | [→ Java 8]( ./Java/README.md#九、java-8 ) |
+| 十、反射与注解 | [→ 反射与注解]( ./Java/README.md#十、反射与注解 ) |
 
 
 **重点子章节：**
@@ -77,7 +80,11 @@ JavaNote/
 - [编译时多态与运行时多态]( ./Java/README.md#1-编译时多态？运行时多态？ )
 - [集合类 (Java Collections Framework)]( ./Java/README.md#2-集合类-java-collections-framework )
 - [异常处理两种方法]( ./Java/README.md#3-异常处理两种方法 )
-- [线程生命周期与状态]( ./Java/README.md#3-线程的生命周期与状态 )
+- [线程生命周期与状态]( ./Java/README.md#77-线程的生命周期与状态 )
+- [内部类详解（四种内部类）]( ./Java/README.md#8-内部类详解 )
+- [synchronized 锁升级（偏向锁/轻量级/重量级）]( ./Java/README.md#31-synchronized-锁升级偏向锁轻量级锁重量级锁 )
+- [sleep、wait、join 区别]( ./Java/README.md#78-sleepwaitjoin-的区别与线程通信 )
+- [BigDecimal 精度问题]( ./Java/README.md#15-bigdecimal-精度问题金额计算必用 )
 
 
 ---
@@ -101,6 +108,13 @@ JavaNote/
 | 五、锁（Lock） | [→ 锁]( ./MySQL/README.md#五、锁lock ) |
 | 六、索引（Index） | [→ 索引]( ./MySQL/README.md#六、索引index ) |
 | 七、MySQL 优化总结（面试高频） | [→ 优化总结]( ./MySQL/README.md#七、mysql优化总结 ) |
+| 八、数据库引擎对比 | [→ 引擎对比]( ./MySQL/README.md#八、数据库引擎对比 ) |
+| 九、线上高阶优化方案 | [→ 优化方案]( ./MySQL/README.md#九、线上高阶优化方案 ) |
+| 十、MySQL 架构与 SQL 执行流程 | [→ 架构与执行流程]( ./MySQL/README.md#十、mysql-架构与-sql-执行流程 ) |
+| 十一、InnoDB 存储引擎架构 | [→ InnoDB 架构]( ./MySQL/README.md#十一、innodb-存储引擎架构buffer-pool ) |
+| 十二、主从复制 | [→ 主从复制]( ./MySQL/README.md#十二、主从复制binlog-三种格式 ) |
+| 十三、分库分表 | [→ 分库分表]( ./MySQL/README.md#十三、分库分表核心思想与问题 ) |
+| 十四、字段类型与主键设计 | [→ 字段类型]( ./MySQL/README.md#十四、常用字段类型与主键设计面试高频 ) |
 
 
 **重点子章节：**
@@ -110,6 +124,9 @@ JavaNote/
 - [行级锁（InnoDB）]( ./MySQL/README.md#4行级锁innodb )
 - [最左前缀法则 & 索引失效场景]( ./MySQL/README.md#5最左前缀法则 )
 - [EXPLAIN 执行计划]( ./MySQL/README.md#8explain执行计划 )
+- [binlog 与 redo log 两阶段提交]( ./MySQL/README.md#5binlog-与-redo-log-两阶段提交2pc )
+- [索引下推 ICP / MRR]( ./MySQL/README.md#6索引下推-icp-与-mrr-优化 )
+- [主从复制原理]( ./MySQL/README.md#十二、主从复制binlog-三种格式 )
 
 
 ---
@@ -157,16 +174,23 @@ JavaNote/
 | 三、IOC 和 DI 常用注解 | [→ IOC 和 DI 常用注解]( ./Spring%20Boot/README.md#三、ioc和di常用注解 ) |
 | 四、功能实现详解 | [→ 功能实现详解]( ./Spring%20Boot/README.md#四、功能实现详解 ) |
 | 五、最终功能实现 | [→ 最终功能实现]( ./Spring%20Boot/README.md#五、最终功能实现 ) |
-| 六、SpringBoot 高频面试知识点补充 | [→ 面试知识点补充]( ./Spring%20Boot/README.md#六、springboot高频面试知识点 ) |
-| 七、Spring Schedule 定时任务 | [→ Spring Schedule]( ./Spring%20Boot/README.md#七、spring-schedule-定时任务 ) |
+| 六、Spring Schedule 定时任务 | [→ Spring Schedule]( ./Spring%20Boot/README.md#六、spring-schedule-定时任务 ) |
+| 七、Spring AOP 面向切面编程 | [→ Spring AOP]( ./Spring%20Boot/README.md#七、spring-aop面向切面编程 ) |
+| 八、配置绑定与配置文件 | [→ 配置绑定]( ./Spring%20Boot/README.md#八、配置绑定与配置文件 ) |
+| 九、统一异常处理 | [→ 统一异常处理]( ./Spring%20Boot/README.md#九、统一异常处理restcontrolleradvice ) |
+| 十、声明式事务管理 | [→ 事务管理]( ./Spring%20Boot/README.md#十、声明式事务管理transactional ) |
+| 十一、Spring MVC 请求处理流程与 RESTful | [→ MVC 流程]( ./Spring%20Boot/README.md#十一、spring-mvc-请求处理流程与-restful ) |
+| 十二、跨域处理（CORS） | [→ 跨域处理]( ./Spring%20Boot/README.md#十二、跨域处理cors ) |
+| 十三、异步任务（@Async） | [→ 异步任务]( ./Spring%20Boot/README.md#十三、异步任务async ) |
+| 十四、条件注解与 Spring Boot 启动流程 | [→ 条件注解与启动流程]( ./Spring%20Boot/README.md#十四、条件注解与-spring-boot-启动流程 ) |
 
 
 **重点子章节：**
 - [Controller 层常用注解速记（面试）]( ./Spring%20Boot/README.md#5面试必考controller层常用注解速记 )
 - [AOP 面向切面编程详解（面试高频）]( ./Spring%20Boot/README.md#aop面向切面编程详解面试高频 )
 - [@Autowired 与 @Resource 的区别（必背）]( ./Spring%20Boot/README.md#面试重点autowired-与-resource-的区别必背 )
-- [统一异常处理]( ./Spring%20Boot/README.md#2统一异常处理面试手写代码常考 )
-- [事务管理]( ./Spring%20Boot/README.md#3事务管理 )
+- [统一异常处理]( ./Spring%20Boot/README.md#2-统一异常处理面试手写代码常考 )
+- [事务管理（传播行为与隔离级别）]( ./Spring%20Boot/README.md#3-事务管理传播行为与隔离级别 )
 
 
 ---
