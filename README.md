@@ -1,4 +1,9 @@
 # Java学习笔记
+  <img src="https://img.shields.io/badge/Java-Spring%20Boot-brightgreen.svg?style=flat-square&logo=springboot">
+  <img src="https://img.shields.io/badge/MyBatis-Framework-orange.svg?style=flat-square&logo=mybatis">
+  <img src="https://img.shields.io/badge/MySQL-Database-blue.svg?style=flat-square&logo=mysql">
+  <img src="https://img.shields.io/badge/Redis-Cache-red.svg?style=flat-square&logo=redis">
+  
 
 ## 前言
 
