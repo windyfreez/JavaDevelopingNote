@@ -55,11 +55,7 @@
 链接：
 - SwapU云市集 [https://github.com/windyfreez/SwapU](https://github.com/windyfreez/SwapU) 一个面向C2C的物品交易服务平台（作者力推！）
 
-<<<<<<< HEAD
-- ProjectPliot：[https://github.com/windyfreez/CodingPilot](https://github.com/windyfreez/CodingPilot) Coding工作台，涵盖项目管理、Token用量统计、代码数据统计、TodoList记录等提效功能
-=======
-- ProjectPliot：[https://github.com/windyfreez/ProjectPilot](https://github.com/windyfreez/ProjectPilot) Coding工作台，涵盖项目管理、Token用量统计、TodoList记录等功能
->>>>>>> 0f8382ccd9c84fa19c5659b27f61adb6bf28e374
+- ProjectPliot：[https://github.com/windyfreez/CodingPilot](https://github.com/windyfreez/CodingPilot) Coding工作台，涵盖项目管理、Token用量统计、代码数据统计、TodoList记录等功能
 
 ---
 
