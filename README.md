@@ -31,7 +31,9 @@
 下方有我整理的检索目录，你可以根据章节和知识点进行快速跳转，提升学习和查找的效率
 
 **推荐学习顺序：** 
+
 <img width="784" height="236" alt="image" src="https://github.com/user-attachments/assets/817b8cd9-c87f-458a-bf98-12539151ae7f" />
+
 该顺序与作者的学习顺序相同，我认为这对于知识连贯性是相对合理的 
 
 
