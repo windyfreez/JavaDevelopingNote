@@ -31,7 +31,9 @@
 下方有我整理的检索目录，你可以根据章节和知识点进行快速跳转，提升学习和查找的效率
 
 **推荐学习顺序：** 
-![alt text](image.png)
+
+<img width="784" height="236" alt="image" src="https://github.com/user-attachments/assets/817b8cd9-c87f-458a-bf98-12539151ae7f" />
+
 该顺序与作者的学习顺序相同，我认为这对于知识连贯性是相对合理的 
 
 
@@ -59,7 +61,7 @@
 <<<<<<< HEAD
 - ProjectPliot：[https://github.com/windyfreez/CodingPilot](https://github.com/windyfreez/CodingPilot) Coding工作台，涵盖项目管理、Token用量统计、代码数据统计、TodoList记录等提效功能
 =======
-- CodingPliot：[https://github.com/windyfreez/ProjectPilot](https://github.com/windyfreez/ProjectPilot) Coding工作台，涵盖项目管理、Token用量统计、TodoList记录等功能
+- ProjectPliot：[https://github.com/windyfreez/ProjectPilot](https://github.com/windyfreez/ProjectPilot) Coding工作台，涵盖项目管理、Token用量统计、TodoList记录等功能
 >>>>>>> 0f8382ccd9c84fa19c5659b27f61adb6bf28e374
 
 ---
