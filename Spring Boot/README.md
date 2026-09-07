@@ -743,6 +743,28 @@ public class OrderService {
 | 500 | 服务器内部错误 | 代码异常 |
 | 502/503 | 网关/服务不可用 | 服务宕机、限流 |
 
+### 4. Filter过滤器与Interceptor拦截器（面试必背）
+
+> 🎯【面试题】Filter过滤器和Interceptor拦截器有什么区别？
+> 参考答案：
+> 1. **归属不同**：Filter属于**Servlet规范**组件，由Servlet容器（Tomcat）管理，不依赖Spring也能用；Interceptor属于**Spring MVC框架**组件，由Spring IOC容器管理，可以访问容器里的Bean；
+> 2. **拦截范围不同**：Filter能拦截**所有请求**（包括静态资源），在请求进入DispatcherServlet之前就已经执行；Interceptor只能拦截**进入Spring MVC流程的Controller请求**；
+> 3. **能力不同**：Filter只能拿到`HttpServletRequest/Response`，**看不到目标Controller方法**；Interceptor可以拿到**HandlerMethod**和目标方法上的注解，能做权限校验等细粒度控制；
+> 4. **执行位置不同**：Filter在DispatcherServlet之前/之后执行；Interceptor在HandlerAdapter调用目标方法之前/之后执行。
+
+| 对比项 | Filter过滤器 | Interceptor拦截器 |
+|---|---|---|
+| **所属规范** | Servlet规范（Servlet容器管理） | Spring MVC框架（IOC容器管理） |
+| **拦截范围** | 所有请求，**含静态资源** | 只拦进入Spring MVC的Controller请求 |
+| **能否获取Handler** | 不能 | 能（HandlerMethod） |
+| **配置方式** | `@WebFilter`+`@ServletComponentScan`，或`FilterRegistrationBean` | 实现`HandlerInterceptor`，注册进`WebMvcConfigurer.addInterceptors` |
+
+> 🎯【面试题】一次请求中Filter和Interceptor的完整执行顺序？
+> 参考答案：
+> `请求 → Filter.doFilter()前置逻辑 → DispatcherServlet分发 → HandlerInterceptor.preHandle() → Controller方法执行 → postHandle()（方法返回后、视图渲染前）→ afterCompletion()（整个请求完成后）→ 响应返回，执行Filter.doFilter()后置逻辑`。
+> **记忆口诀**：Filter最外层包住DispatcherServlet，Interceptor贴着Controller；多个拦截器按注册顺序执行preHandle（返回false直接中断、后续不再放行），postHandle/afterCompletion**逆序**执行。
+> ⚠️ 陷阱：Filter抛出的异常**不会被`@RestControllerAdvice`捕获**（Filter在Spring MVC之外执行），需要Filter自行try‑catch，呼应九、统一异常处理章节。
+
 ---
 
 ## 十二、跨域处理（CORS）
