@@ -40,6 +40,13 @@
 34. execute和submit区别，shutdown/shutdownNow
 35. 为什么不建议直接使用 Executors 创建线程池？
 36. CountDownLatch、CyclicBarrier、Semaphore区别
+37. 线程中断机制 interrupt？
+38. ThreadLocal 内存泄漏细节与跨线程传递（TTL）？
+39. ReentrantLock 的 lock/tryLock/lockInterruptibly 区别？
+40. 乐观锁（版本号）更新失败后怎么处理？
+41. 五种内置线程池与阻塞队列选择？
+42. Minor GC、Major GC、Full GC 区别？Full GC 触发场景？
+43. 内存泄漏和内存溢出的区别？
 
 > 🎯【⭐⭐⭐⭐ 建议掌握】
 37. 泛型擦除是什么？
@@ -57,6 +64,23 @@
 49. JDK动态代理与CGLIB区别
 50. 单例模式，DCL为什么要volatile
 51. Java21虚拟线程特点
+52. 循环中字符串拼接为什么必须用 StringBuilder？
+53. 浮点数比较陷阱（0.1+0.2 != 0.3）？
+54. 泛型擦除对运行时的影响（instanceof、反射绕过）？
+55. 遍历集合时如何安全删除元素？
+56. HashMap 多线程下的问题与初始化容量预估？
+57. HashMap 按 Key / 按 Value 排序？
+58. ConcurrentHashMap 的 get 为什么不需要加锁？
+59. NIO 三大组件（Buffer/Channel/Selector）？
+60. 读写锁细节：锁降级、锁升级与 StampedLock？
+61. CountDownLatch 底层原理与使用陷阱？
+62. 堆内存分代结构（Eden/Survivor 比例、对象晋升规则）？
+63. 垃圾收集器演进：CMS 缺陷、G1 与 ZGC？
+64. JVM 内存区域和 JMM 的区别？
+65. JDBC 如何打破双亲委派（线程上下文类加载器）？
+66. 反射核心 API、setAccessible 与性能优化？
+67. 单例模式五种写法对比？
+68. 责任链、策略、代理与适配器模式的区别？
 
 > 📌 Java后端高频面试陷阱汇总
 1. Java只有值传递，不存在引用传递；引用类型传递的是引用副本。
@@ -222,6 +246,37 @@ System.out.println(s1 == s3.intern()); // true，intern返回常量池引用
 - 比较大小用`compareTo`，不要用`equals`（equals会比较精度标度，`1.0`和`1.00`不相等）；
 - 保留小数：`setScale(2, RoundingMode.HALF_UP)`四舍五入；
 - 开发规范：数据库金额字段用`DECIMAL`，实体类用`BigDecimal`；JSON序列化注意精度丢失问题（前端可传字符串）。
+
+### 16. 循环中字符串拼接的选择
+> 🎯【面试题】循环里拼接字符串为什么不能用`+`？应该怎么做？
+> 参考答案：
+> 1. 循环内写`s += "a"`，编译器虽然会优化成StringBuilder，但优化范围只有**单行**：StringBuilder是在循环体内部每次重新new的，循环1万次就创建1万个StringBuilder和1万个String临时对象，堆压力巨大，频繁触发GC；
+> 2. 正确做法：循环外创建**一个**StringBuilder，循环内只调用`append`，结束后`toString`；如果能预估长度，构造时直接传初始容量（如`new StringBuilder(10000)`），避免内部数组反复扩容；
+> 3. 单线程场景一律用StringBuilder；只有多线程共享同一个字符串缓冲区（实际极少见）才考虑StringBuffer；
+> 4. 补充：Java9起`+`拼接改用`StringConcatFactory`（invokedynamic动态生成拼接逻辑），非循环场景效率有提升，但循环内拼接依然要显式使用StringBuilder。
+```java
+// ❌ 错误：每次循环都 new StringBuilder() + toString()
+String result = "";
+for (int i = 0; i < 10000; i++) {
+    result += i;
+}
+// ✅ 正确：循环外建一个 StringBuilder
+StringBuilder sb = new StringBuilder();
+for (int i = 0; i < 10000; i++) {
+    sb.append(i);
+}
+String finalResult = sb.toString();
+```
+
+### 17. 浮点数比较陷阱与 double/BigDecimal 的选择
+> 🎯【面试题】`0.1 + 0.2 == 0.3` 的结果是什么？浮点数判断相等怎么做？
+> 参考答案：false。double是IEEE 754二进制浮点数，0.1在二进制中是无限循环小数只能近似存储，运算误差会累积，实际得到`0.30000000000000004`。
+> 浮点数判断相等不能用`==`，应该用误差范围（epsilon）：`Math.abs(x - y) < 1e-10`。
+> double和BigDecimal怎么选：
+> 1. 科学计算、图形渲染、性能敏感的高频计算用double——硬件指令支持，比BigDecimal快10~100倍；
+> 2. 金额等精确计算一律用BigDecimal——金融系统宁可慢也要准；
+> 3. `BigDecimal.valueOf(double)`虽然比`new BigDecimal(0.1)`好一点，但仍会带入double的原始误差，最稳妥的还是字符串构造`new BigDecimal("0.1")`。
+> ⚠️注意：BigDecimal是对象，内存开销大、运算慢，不要在循环统计均值等非精确场景滥用；BigDecimal可以为null，从数据库取值判空再运算。
 
 ## 二、面向对象基础
 ### 1. 封装、继承、多态定义
@@ -740,6 +795,66 @@ public class TestException2 {
 > try‑with‑resources是JDK7提供语法，实现AutoCloseable接口的资源可以写在try()括号里面，代码执行结束自动关闭资源，不用手写finally关闭流、连接。
 > finally大部分场景会执行；如果JVM直接退出System.exit(0)，finally不会执行。
 
+### 4. 泛型擦除对运行时的影响（instanceof、反射绕过）
+> 🎯【面试题】为什么 `obj instanceof List<String>` 编译报错？运行时还能拿到泛型类型吗？
+> 参考答案：
+> 泛型只存在于编译期，运行时发生类型擦除：`List<String>` 擦成原始类型 List，带通配符上界的擦成上界。所以 JVM 根本不知道这个 List 原来装的是什么，对不存在的信息做运行时判断会直接编译报错，绝大多数情况下不能通过 instanceof 检查具体泛型类型。
+> 合法写法：只能用无界通配符 `obj instanceof List<?>`（或原始类型 List）判断"外壳"，无法判断元素类型。
+> 要在运行时校验元素类型有两种思路：
+> 1. 先 `instanceof List<?>` 判断是 List，再遍历元素逐个 `element instanceof String` 校验；
+> 2. Type Token 模式：把 `Class<T>` 作为参数显式传进来，用 `type.isInstance(obj)` 判断、`type.cast(obj)` 安全强转。
+> 框架怎么拿到泛型：局部变量、实例字段的泛型被擦除了，但**类声明上的父类/接口泛型签名（Signature）会保留在字节码常量池**。Jackson、Fastjson 反序列化 `List<User>` 就是靠 `new TypeReference<List<User>>(){}` 匿名子类 + 反射 `getGenericSuperclass()` 把泛型信息"抠"出来——这就是匿名内部类写法能绕过擦除的原因。
+
+### 5. 遍历集合时如何安全删除元素？
+> 🎯【面试题】遍历 ArrayList 的过程中要删除元素，怎么做才正确？
+> 参考答案：
+> 1. 增强 for 循环里直接 list.remove()：❌ 必抛 ConcurrentModificationException。foreach 底层是 Iterator，迭代器内部维护 expectedModCount，集合自身的 remove 只更新 modCount，下次调用 next() 时发现两者不一致，触发 fail-fast；
+> 2. 普通 for 正向遍历删除：⚠️ 不会报错但会**漏删**——删除后后面的元素整体前移一位，循环 i++ 正好跳过了紧邻的下一个元素；修正方式是从后往前遍历；
+> 3. 迭代器 it.remove()：✅ 安全，它删除元素后会同步更新 expectedModCount；
+> 4. `list.removeIf(条件)`（Java 8）：🏆 最推荐，声明式一行搞定，底层已处理好遍历删除逻辑；
+> 5. 换成 CopyOnWriteArrayList：✅ 遍历的是原数组快照，foreach 中删除也不报错，但每次写都复制数组，仅适合读多写少。
+
+```java
+// 推荐：Java8 removeIf
+list.removeIf(s -> "b".equals(s));
+// 传统：迭代器删除（注意调用的是 iterator 的 remove，不是 list 的 remove）
+Iterator<String> it = list.iterator();
+while (it.hasNext()) {
+    if ("b".equals(it.next())) {
+        it.remove();
+    }
+}
+```
+
+### 6. HashMap 多线程问题与初始容量预估
+> 🎯【面试题】HashMap 在多线程下会出什么问题？为什么建议预估容量创建？
+> 参考答案：
+> 多线程问题：JDK7 头插法在并发扩容时可能让链表形成**环形结构**，后续 get 陷入死循环 CPU 100%；JDK8 改为尾插法解决了成环问题，但并发 put 仍会**丢失数据**（两个线程同时写同一个桶相互覆盖）、size 不准确。多线程场景直接用 ConcurrentHashMap，不要用 Collections.synchronizedMap（整表一把锁，性能差）。
+> 容量预估：默认容量 16、负载因子 0.75，元素增多会多次触发扩容 rehash 拷贝，产生性能抖动。已知要存 N 个元素时，按 `(N / 0.75) + 1` 预估初始容量（Alibaba 规范口径）直接 `new HashMap<>(capacity)`，避免反复扩容。
+
+### 7. HashMap 按 Key / 按 Value 排序
+> 🎯【面试题】HashMap 天生无序，怎么按 Key 排序？怎么按 Value 排序？
+> 参考答案：
+> 按 Key 排序：直接 `new TreeMap<>(map)`，TreeMap 底层红黑树自动按 Key 排序，传自定义 Comparator 可控制升降序。
+> 按 Value 排序：没有哪种 Map 是按 Value 组织数据的，标准套路是 entrySet 转 List → 排序 → 收集回 **LinkedHashMap**（靠内部双向链表保持插入顺序）。
+
+```java
+// 按 Key 排序
+Map<String, Integer> sortedByKey = new TreeMap<>(map);
+// 按 Value 排序（Java8 Stream，收集时必须显式指定 LinkedHashMap，否则顺序丢失）
+Map<String, Integer> sortedByValue = map.entrySet().stream()
+        .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                (o, n) -> o, LinkedHashMap::new));
+```
+
+> ⚠️注意：不要给 TreeMap 传按 Value 比较的 Comparator 来实现按 Value 排序——TreeMap 的去重也依赖 Comparator，两个 Entry 的 Value 相等会被判定为"相同 Key"直接覆盖，导致数据丢失。
+
+### 8. ConcurrentHashMap 的 get 为什么不需要加锁？
+> 🎯【面试题】ConcurrentHashMap 的 get 完全无锁，靠什么保证线程安全？
+> 参考答案：Node 节点的 val 和 next 指针都用 **volatile** 修饰，写线程修改后对读线程立即可见，get 靠 volatile 可见性直接读到最新值，全程无锁，这也是它读性能高的核心原因。
+> 补充两个细节：get 读到的桶头节点 hash 为 -1（ForwardingNode）说明正在扩容，会顺着它去新数组读；put 时桶为空用 CAS 无锁插入，桶不为空才 synchronized 锁住桶头节点——锁粒度从 JDK7 的 Segment 段细化到了单个桶。
+
 ## 五、输入输出文件流（I/O）
 ### 1. 基本分类
 按照流向区分：输入流负责读数据；输出流负责写数据。
@@ -808,6 +923,15 @@ public class StudentScoreIO {
 平均分: 84.3 分
 */
 ```
+
+### 4. NIO 三大组件（Buffer / Channel / Selector）
+> 🎯【面试题】说说 NIO 三大核心组件的作用？NIO 是同步还是异步？
+> 参考答案：
+> 1. **Buffer 缓冲区**：NIO 中所有数据读写都必须经过 Buffer，本质是数组（ByteBuffer 最常用），内部用 position、limit、capacity 三个指针跟踪读写状态；写模式切换到读模式要调用 flip()；
+> 2. **Channel 通道**：双向管道，既能读也能写（BIO 的流是单向的），数据在 Channel 与 Buffer 之间搬运：channel.read(buf)、channel.write(buf)；常见实现 FileChannel、SocketChannel、ServerSocketChannel、DatagramChannel；
+> 3. **Selector 选择器**：NIO 的灵魂，单线程监控多个 Channel 的 IO 事件（ACCEPT、CONNECT、READ、WRITE）。Channel 向 Selector 注册感兴趣的事件，select() 轮询返回就绪事件的 SelectionKey 集合，线程再逐个处理——这就是 IO 多路复用，一个线程管理成千上万连接。
+> NIO 是**同步非阻塞**：线程仍要主动调用 select() 询问就绪状态（同步）；没有就绪事件时线程不会被卡死（非阻塞）。
+- 生产上很少直接写原生 NIO API（半包黏包、断连重连处理繁琐），主流用 Netty 封装；Tomcat8+ 默认 NIO 模式，Kafka、Zookeeper 通信层也基于 NIO。
 
 ## 六、枚举与程序初始化顺序
 ### 1. 枚举类型的定义方式和使用
@@ -976,6 +1100,112 @@ Integer result = futureTask.get(); // 阻塞等待结果
 - 排查命令：`jps`查进程号 → `jstack <pid>`查看线程栈，出现"Found one Java-level deadlock"即死锁，能看到互相等待的锁和线程；
 - 实际业务中死锁往往来自**锁顺序不一致**（A线程先锁A再锁B，B线程先锁B再锁A）。
 
+### 7.10 线程中断机制（interrupt）
+> 🎯【面试题】调用 interrupt() 会强制停止线程吗？isInterrupted() 和 Thread.interrupted() 有什么区别？
+> 参考答案：
+> interrupt() 是**协作式**中断，不是强制命令，更不是"杀死线程"。它只是给目标线程打一个中断标记（标志位置 true），线程停不停、什么时候停，完全由线程自己的代码逻辑决定。已废弃的 stop() 才是暴力终止，会导致锁不释放、数据错乱。
+> 三个核心方法：
+> 1. interrupt()：实例方法，设置目标线程中断标志位为 true；
+> 2. isInterrupted()：实例方法，判断标志位，**不清除**；
+> 3. Thread.interrupted()：静态方法，判断**当前线程**标志位并**清除**（重置回 false）。
+> 两种不同的表现：
+> 1. 线程正常运行中：interrupt() 只把标志位置 true，线程如果不去检查就完全没影响，必须在循环条件里主动判断 `!Thread.currentThread().isInterrupted()`；
+> 2. 线程阻塞中（sleep/wait/join）：interrupt() 会让线程立刻抛出 InterruptedException，并且 JVM 自动把中断标志位**重置为 false**——这是为了给线程一个复原的机会。
+
+> ⚠️注意：catch 到 InterruptedException 后不要吞掉。抛异常时标志位已被清除，如果当前方法决定不往外抛，应再次调用 `Thread.currentThread().interrupt()` 恢复中断状态，否则中断信号"消失"，上层调用方（比如线程池的 shutdownNow）感知不到线程曾被中断，该停的时候停不下来。
+
+### 7.11 ThreadLocal 内存泄漏细节与跨线程传递（TTL）
+> 🎯【面试题】ThreadLocal 的 key 是弱引用，为什么还会内存泄漏？泄漏的到底是谁？
+> 参考答案：
+> 泄漏的不是 key（ThreadLocal 对象），而是 Entry 里的 **value**。强引用链：Thread → ThreadLocalMap → Entry → value，线程池核心线程长期存活，这条链就一直在。
+> 泄漏过程：外部不再持有 ThreadLocal 的强引用后，下一次 GC 弱引用 key 被回收变成 null；但 value 是强引用仍然挂在 Entry 上，而程序已经无法通过 key 找到它，这块内存就成了"幽灵对象"，占着坑却访问不到。
+> 为什么设计成弱引用：弱引用其实是在**减轻**泄漏——如果 key 是强引用，线程不销毁，ThreadLocal 和 value 就永远不回收；弱引用至少保证 ThreadLocal 对象本身能被回收，而且 set()/get()/rehash() 时会顺带探测清理 key 为 null 的 Entry。但这种清理是被动的，之后再也不调用就漏了，真正的锅是业务代码没闭环。
+> 规避：用完必须 remove()，配合 try-finally；Web 场景在拦截器 afterCompletion 里统一清理。
+
+```java
+private static final ThreadLocal<User> USER_HOLDER = new ThreadLocal<>();
+public void process() {
+    try {
+        USER_HOLDER.set(currentUser);
+        doBusiness();
+    } finally {
+        USER_HOLDER.remove(); // 线程池复用场景的救命稻草
+    }
+}
+```
+
+> 🎯【面试题】ThreadLocal 怎么跨线程传递？InheritableThreadLocal 为什么在线程池下失效？
+> 参考答案：
+> 普通 ThreadLocal 天然不能跨线程。InheritableThreadLocal 在 new Thread() 时把父线程的变量复制给子线程，但只在**线程创建那一刻**同步一次——线程池的线程是预先创建好、反复复用的，不会重新走 init 逻辑，所以拿到的永远是线程"出生"时的旧值，感知不到后续每次提交任务时主线程的最新上下文。
+> 标准解法是阿里开源的 TransmittableThreadLocal（TTL）：任务**提交时**抓取（Copy）当前线程变量快照打包进增强的 Runnable，**执行时**注入（Replay）到池化线程，**执行完**恢复（Restore）原现场，避免污染下一个任务。用法：TtlExecutors.getTtlExecutorService() 包装线程池，或 JVM 启动时挂载 TTL Java Agent 自动字节码增强，业务零侵入。典型场景：链路追踪 TraceID 透传、登录用户上下文传递。
+
+### 7.12 ReentrantLock 的 lock / tryLock / lockInterruptibly 区别
+> 🎯【面试题】三种获取锁的方式有什么区别？各适用什么场景？
+> 参考答案：
+> 1. lock()：死等派——拿不到锁就永久阻塞，**不响应中断**（等待中被 interrupt() 不会抛异常，拿到锁后才补上中断标记）；适合最常规的同步场景；
+> 2. tryLock()：急性子——无参版本探测一下，锁空闲立刻拿走返回 true，被占立刻返回 false 绝不等待；带参版本 tryLock(time, unit) 限时等待，超时返回 false，等待期间**响应中断**；是避免死锁的利器（互相等待时超时一方主动放弃，打破循环等待）；
+> 3. lockInterruptibly()：可唤醒派——阻塞等待但积极响应中断，被 interrupt() 立刻放弃排队并抛 InterruptedException；适合可能长时间等待、允许被取消的任务。
+> 加分点：无参 tryLock() 会"插队"破坏公平性——即使创建的是公平锁，只要锁空闲它就直接抢走，不管排队队列里有没有人在等。
+
+```java
+// tryLock 标准范式：必须 if 判断返回值，只有拿到锁才允许 unlock
+if (lock.tryLock()) {
+    try {
+        // 业务逻辑
+    } finally {
+        lock.unlock();
+    }
+} else {
+    // 没拿到锁的降级/兜底逻辑
+}
+```
+
+> ⚠️注意：tryLock() 返回 false 时绝不能执行 unlock()，会抛 IllegalMonitorStateException——不能释放不属于你的锁。
+
+### 7.13 乐观锁更新失败后怎么处理？
+> 🎯【面试题】数据库乐观锁版本号冲突、CAS 更新失败之后，工程上怎么处理？
+> 参考答案：
+> 版本号变了说明"撞车"了，判断依据是 `UPDATE t SET val=?, version=version+1 WHERE id=? AND version=?` 的**受影响行数为 0**。两种处理策略：
+> 1. 直接失败（Fail Fast）：放弃本次修改抛出业务异常，交给上层或用户决定是否重试。适合用户强交互场景（秒杀、抢购），前端提示"系统繁忙请重试"，保护后端不被重试风暴打挂；
+> 2. 自旋重试（Spin Retry）：循环里**重新读取最新数据和版本号**再更新，直到成功或达到最大重试次数。适合系统内部自动化任务（定时任务、MQ 消费状态更新）。
+> 两个必须：重试必须设置上限（一般 3~5 次），否则高并发下大量失败线程同时疯狂查库抢版本，CPU 飙升、数据库连接池被打爆；重试前加随机休眠（Backoff 策略，如 sleep 10~50ms）错开重试时间，避免活锁。
+> 延伸：数据库版本号严格递增（version = version + 1），永远不可能 1→2→1 回退，天然没有 CAS 的 ABA 问题。
+
+### 7.14 五种内置线程池与阻塞队列选择
+> 🎯【面试题】Executors 提供了哪几种内置线程池？各自的隐患？线程池的阻塞队列怎么选？
+> 参考答案：
+> 五种内置线程池：
+> 1. FixedThreadPool：定长，核心线程数=最大线程数；底层**无界** LinkedBlockingQueue，任务堆积会 OOM；
+> 2. CachedThreadPool：核心 0、最大 Integer.MAX_VALUE，空闲 60 秒回收；短时间涌入大量任务会创建海量线程，CPU 100% 或 OOM；
+> 3. SingleThreadExecutor：单线程保证任务顺序执行，线程挂了会自动补一个；底层同样无界队列，会 OOM；
+> 4. ScheduledThreadPool：定时、周期性任务，替代 Timer；⚠️ 周期任务抛异常且未捕获，后续调度会**静默停止**，任务体必须 try-catch；
+> 5. WorkStealingPool（JDK8）：基于 ForkJoinPool 的工作窃取线程池，每个线程有自己的双端队列，干完自己的活去偷别人的，适合大任务拆分、任务耗时差异大的并行计算。
+> 阻塞队列选择（线程池调优核心）：
+> 1. LinkedBlockingQueue：业务首选，但**必须手动指定容量**（无参构造是 Integer.MAX_VALUE），队列满触发拒绝策略保护系统；
+> 2. ArrayBlockingQueue：数组结构、容量固定、单锁实现，适合负载平稳、严格限制资源占用的场景；
+> 3. SynchronousQueue：容量为 0，一进一出直接交接、不存储任务，配合很大的 maximumPoolSize 追求极致响应（CachedThreadPool 底层就是它）；
+> 4. PriorityBlockingQueue：按优先级出队（注意是无界队列），VIP 请求优先、紧急报警优先场景；
+> 5. DelayQueue：延迟到期才能取出，定时/延迟任务。
+> 生产模板：手动 `new ThreadPoolExecutor(4, 8, 60, SECONDS, new LinkedBlockingQueue<>(500), 具名ThreadFactory, CallerRunsPolicy)`——有界队列 + 具名线程 + CallerRunsPolicy 天然背压（提交线程自己干活，自动减速）。
+
+### 7.15 读写锁细节：锁降级、锁升级与 StampedLock
+> 🎯【面试题】ReentrantReadWriteLock 怎么用一个 state 同时表示读锁和写锁？什么是锁降级？
+> 参考答案：
+> AQS 的 state 是 32 位 int，读写锁把它**按位切分**：高 16 位记录读锁状态，低 16 位记录写锁状态。获取写锁要求高低位都没被别人占用；获取读锁只看低 16 位（有人在写且不是自己就失败），成功则高位加 1。
+> **锁降级**（支持）：持有写锁 → 再获取读锁 → 释放写锁。典型场景：刚写完缓存马上要读自己刚写的数据，先拿读锁再放写锁，防止释放写锁的间隙被别人改了导致读到脏数据。
+> **锁升级**（不支持）：持有读锁时直接申请写锁会造成死锁——你在等其他读线程释放读锁，别的读线程也在等你释放读锁。
+> 写饥饿问题：读极其频繁时读锁源源不断，写线程可能一直抢不到写锁。JDK8 引入 **StampedLock** 缓解：提供"乐观读"——读时不加锁，读完校验邮戳（stamp）确认期间没有写入，失败再升级为悲观读锁重读，吞吐更高，缓解写饥饿。
+
+### 7.16 CountDownLatch 底层原理与使用陷阱
+> 🎯【面试题】CountDownLatch 底层怎么实现的？使用时有哪些坑？
+> 参考答案：
+> 底层就是 AQS **共享模式**：构造参数直接写入 state；countDown() 通过 CAS 把 state 减 1；await() 检查 state 不为 0 就挂进 AQS 等待队列；state 减到 0 时唤醒全部等待线程（共享锁特性，一次性唤醒所有）。
+> 两大经典场景：一等多——接口聚合并行查 3 个下游，主线程 await 等 3 个子任务都 countDown；多等一——压测发令枪，N 个线程 await 等主线程一次 countDown 同时起跑。
+> 两个致命坑：
+> 1. 子线程抛异常导致 countDown() 没执行，state 永远不到 0，主线程 await() **永久阻塞**——countDown 必须放 finally 块；
+> 2. await() 必须用带超时的 `await(timeout, unit)` 兜底，超时走降级逻辑，别裸等。
+> 对比记忆：CountDownLatch 一次性，减到 0 不能重置；要循环复用用 CyclicBarrier（基于 ReentrantLock + Condition 实现，支持 reset）。
+
 ## 八、JVM
 ### 1. JVM 运行时内存区域
 > 🎯【面试题】JVM运行时数据区分为哪几块？哪些线程私有哪些共享？
@@ -1056,6 +1286,74 @@ StackOverflowError栈溢出；OutOfMemoryError内存溢出；内存泄漏对象�
 > 🎯【面试题】线上OOM怎么排查？
 > 参考答案：1. 先看报错类型：堆OOM（对象太多/内存泄漏）、元空间OOM（动态生成类过多，如反射/CGLIB）、栈溢出（递归过深）；2. 用`jps`定位进程，`jstack`看线程栈，`jmap -heap <pid>`看堆使用，`jmap -dump:format=b,file=heap.hprof <pid>`导出堆快照；3. 用MAT（Memory Analyzer）分析hprof文件，找占用内存最大的对象（Dominator Tree），追踪GC Roots引用链定位泄漏点。常见泄漏：静态集合缓存不清理、ThreadLocal不remove、连接/流未关闭、监听器未注销。
 
+### 13. Minor GC、Major GC、Full GC 与 Full GC 触发场景
+> 🎯【面试题】三种 GC 的区别？Full GC 什么情况下触发？
+> 参考答案：
+> 1. **Minor GC（Young GC）**：只回收新生代（Eden+S0+S1），Eden 满触发，频率高、速度快；
+> 2. **Major GC**：回收老年代，老年代空间不足触发；严格说只有 CMS 等部分收集器有单独的 Major GC 概念，很多工具和日志里把它和 Full GC 混用，面试口径：**Major GC 侧重老年代，Full GC 是全堆**；
+> 3. **Full GC**：清理新生代 + 老年代 + 元空间，频率低、STW 长、性能影响最大。
+> Full GC 常见触发场景：
+> 1. 老年代空间不足：对象晋升时放不下，或大对象直接进老年代放不下；
+> 2. 元空间不足：类加载过多（反射、动态代理、CGLIB 滥用），触发 Full GC 尝试卸载无用类；
+> 3. 代码调用 System.gc()：只是"建议"JVM 回收，默认通常触发 Full GC，生产建议 -XX:+DisableExplicitGC 禁掉；
+> 4. 空间分配担保失败：Minor GC 前检查历次晋升老年代的平均大小大于老年代剩余连续空间，直接放弃 Minor GC 改为 Full GC；
+> 5. CMS 并发清理期间用户线程产生浮动垃圾塞满老年代，发生 Concurrent Mode Failure，退化 Serial Old 单线程回收，STW 长达数秒。
+> 补充：GC 核心环节伴随 STW（Stop The World），期间业务线程全部暂停；排查频繁 Full GC：jmap 导堆快照 → MAT 分析大对象和引用链 → 检查分代比例、元空间大小、内存泄漏、违规 System.gc()。
+
+### 14. 内存泄漏 vs 内存溢出
+> 🎯【面试题】内存泄漏和内存溢出是一回事吗？什么关系？
+> 参考答案：
+> **内存泄漏（Memory Leak）**：对象逻辑上已经没用了，但被失效的强引用链牵着，GC 无法回收——"占着茅坑不拉屎"，内存占用呈阶梯状上升。
+> **内存溢出（OOM）**：申请内存时空间不够，GC 后依然不足——"茅坑不够用了"，程序直接抛 Error 崩溃。
+> 关系：内存泄漏持续堆积是内存溢出的常见**诱因**；但 OOM 不一定是泄漏，也可能是堆参数太小、瞬时大对象太多。
+> 常见泄漏场景：静态集合只 add 不 remove、ThreadLocal 不 remove（线程池复用）、数据库连接/IO 流未 close、非静态内部类隐式持有外部类、监听器未注销。
+> 常见 OOM 类型：`OutOfMemoryError: Java heap space`（堆溢出）、`OutOfMemoryError: Metaspace`（动态生成类过多）、`StackOverflowError`（递归过深，栈溢出）。
+> 排查难度：泄漏更难——OOM 当场崩溃有报错线索；泄漏早期无感，只能靠监控内存曲线 + 堆快照引用链定位。
+
+### 15. 堆内存分代结构与对象晋升规则
+> 🎯【面试题】堆怎么划分？Eden 和 Survivor 比例是多少？对象什么时候晋升老年代？
+> 参考答案：
+> 堆 = 新生代 + 老年代，默认比例 1:2（-XX:NewRatio=2）；新生代内部 Eden : S0 : S1 = 8 : 1 : 1（-XX:SurvivorRatio=8）。
+> 分代依据是"绝大多数对象朝生夕灭"的经验法则：新生代存活率低用复制算法，老年代存活率高用标记整理/清除。
+> Survivor 分两块的原因：复制算法每次把 Eden + 一个 Survivor 的存活对象复制到另一个空的 Survivor，保证空间连续无碎片，两个 Survivor（From/To）交替使用。
+> 晋升老年代的规则：
+> 1. 年龄达标：对象每熬过一次 Minor GC 年龄 +1，默认 15 次晋升（-XX:MaxTenuringThreshold=15，因为对象头 MarkWord 里年龄字段只有 4 位，最大就是 15）；
+> 2. 大对象直接进老年代（-XX:PretenureSizeThreshold），避免在 Survivor 之间来回复制消耗性能；
+> 3. 动态年龄判断：Survivor 中同龄对象总大小超过 Survivor 空间一半，该年龄及以上的对象直接晋升；
+> 4. Minor GC 后存活对象放不进 Survivor，靠空间分配担保直接进老年代。
+> ⚠️注意：JDK8 起方法区实现为元空间，使用本地内存，**不属于堆**，不要说"方法区在堆里"；G1 下逻辑分代、物理不分代，堆是等大的 Region。
+
+### 16. 垃圾收集器演进：Serial → Parallel → CMS → G1 → ZGC
+> 🎯【面试题】垃圾收集器是怎么演进的？CMS 有什么缺陷为什么被移除？
+> 参考答案：演进主线：吞吐量优先 → 响应时间优先 → 停顿可预测 → 超低延迟。
+> 1. Serial / ParNew：单线程 / 多线程，回收全程 STW；
+> 2. Parallel Scavenge / Parallel Old：吞吐量优先，JDK8 默认组合；
+> 3. CMS（并发标记清除）：首次实现 GC 线程与用户线程并发，STW 大幅缩短。三大硬伤：标记清除产生**内存碎片**，大对象找不到连续空间触发 Concurrent Mode Failure，退化为 Serial Old 单线程全堆回收（数秒级 STW，生产灾难）；并发阶段产生**浮动垃圾**，需要预留空间，内存利用率低；对 CPU 资源敏感。JDK9 废弃、JDK14 移除；
+> 4. G1（JDK9 起默认）：堆切成约 2048 个等大 Region，逻辑分代物理不分代；Region 间局部复制算法基本解决碎片；**停顿预测模型**，-XX:MaxGCPauseMillis 指定期望停顿，优先回收垃圾占比最高的 Region（Garbage First 得名）；Mixed GC 混合回收新生代 + 部分老年代 Region；Remembered Set 维护跨 Region 引用，代价约 10%~20% 堆内存开销。适合 4G~32G 大内存；
+> 5. ZGC / Shenandoah（JDK11+）：染色指针 + 读屏障，几乎所有阶段与用户线程并发，停顿不随堆增大而增长，目标亚毫秒级，面向 TB 级超大堆低延迟场景。
+> 选型口径：<4G 用 Parallel 或 G1 都行；4G~32G 首选 G1；更大堆或金融级低延迟场景 ZGC。
+> ⚠️注意：G1 也有 STW（初始标记、最终标记等阶段），不是全程并发；做到接近全程并发的目前是 ZGC。
+
+### 17. JVM 内存区域和 JMM 的区别
+> 🎯【面试题】JMM 和 JVM 运行时数据区是一回事吗？
+> 参考答案：不是一回事，考察维度完全不同：
+> **JVM 运行时数据区**：内存分配的**物理布局**，回答"数据存在哪、哪块会 OOM"——堆、虚拟机栈、方法区（元空间）、程序计数器等，关注 GC 和内存划分。
+> **JMM（Java 内存模型）**：线程通信的**抽象规范**，回答"多线程变量怎么同步"——抽象出主内存、工作内存，定义 happens-before 规则，保证并发三特性（原子性、可见性、有序性），关注并发安全和指令重排。
+> 类比：JVM 内存区域是办公楼的楼层分布；JMM 是员工协作的规章制度。
+> 联系：JMM 的主内存可类比堆（存对象实例数据），工作内存类比 CPU 缓存/寄存器——只是抽象概念并不真实存在；JMM 的目的是屏蔽不同硬件平台的内存访问差异。
+> ⚠️注意：别说"JMM 的主内存就是堆"。关联高频考点：volatile 的可见性/有序性（内存屏障）、happens-before 规则。
+
+### 18. JDBC 如何打破双亲委派（线程上下文类加载器）
+> 🎯【面试题】DriverManager 由 Bootstrap 加载，为什么能加载到 classpath 里的 MySQL 驱动？
+> 参考答案：
+> 矛盾：DriverManager、Connection 等核心类在 JDK 核心库中，由 Bootstrap ClassLoader 加载；MySQL 驱动实现类在项目 classpath，由 Application ClassLoader 加载。双亲委派是"子委托父"，**父加载器看不到子加载器加载的类**——按正常委派，Bootstrap 根本找不到驱动实现类。
+> 解决方案：线程上下文类加载器（TCCL）。每个线程自带 contextClassLoader 属性，默认设置为 Application ClassLoader。JDK 核心代码不用"自己"的加载器，而是借道线程上下文实现**逆向加载**：
+> 1. 调用 DriverManager.getConnection(url)，内部触发 SPI：ServiceLoader.load(Driver.class)；
+> 2. ServiceLoader 取 `Thread.currentThread().getContextClassLoader()`（即 AppClassLoader）；
+> 3. 用它读取 META-INF/services/java.sql.Driver 配置文件，加载并实例化 com.mysql.cj.jdbc.Driver；
+> 4. 驱动类静态代码块把自己注册进 DriverManager。
+> 本质：让父加载器"反向使用"子加载器加载的类，破坏了双亲委派，是 SPI 机制的标准套路；同类场景还有 JNDI、Tomcat、Spring 框架加载用户 Bean。JDBC 4.0 起无需手写 `Class.forName("com.mysql.jdbc.Driver")`，SPI 自动完成驱动注册。
+
 ## 九、Java 8
 1. Lambda表达式，简化函数式接口匿名内部类写法。
 2. 函数式接口：只有一个抽象方法，@FunctionalInterface标记；常用Predicate、Function、Consumer、Supplier。
@@ -1116,5 +1414,71 @@ System.out.println(Duration.between(now, tomorrow).toHours()); // 时长
 > 🎯【面试题】单例模式有哪些实现？双重检查锁为什么要volatile？
 > 参考答案：饿汉式、懒汉式、双重检查锁DCL、静态内部类、枚举单例。双重检查锁volatile防止对象初始化指令重排序，避免拿到半初始化对象。
 > 其他高频模式：工厂模式、模板方法、策略模式、责任链、观察者模式；Spring框架大量使用这些模式。
+
+### 6. 反射核心 API、setAccessible 与性能优化
+> 🎯【面试题】反射常用 API 有哪些？setAccessible(true) 是干什么的？反射性能差在哪、怎么优化？
+> 参考答案：
+> 核心 API（java.lang.reflect 包）：Class 反射入口；Field 字段；Method 方法；Constructor 构造器。常用操作：`clazz.getDeclaredConstructor().newInstance()` 创建实例（Class.newInstance() 已过时）；`method.invoke(obj, 参数)` 调用方法；`field.get/set` 读写字段。
+> 注意区分：getMethod 只能拿 public 方法（含继承的）；getDeclaredMethod 拿本类声明的所有方法（含 private，但不含父类的）。
+> setAccessible(true)：绕过 Java 语言级访问检查，让反射可以访问 private 成员。Spring 依赖注入私有字段、Jackson 序列化私有字段都靠它，代价是破坏封装，一般只在框架内部使用。
+> 性能问题：反射调用要经过方法查找、访问安全检查、参数装箱，且 JIT 难以内联，比直接调用慢几十倍。优化手段：
+> 1. 缓存 Method/Field/Class 对象，框架启动时解析一次复用（Spring 的 Bean 元信息就是这样缓存的）；
+> 2. setAccessible(true) 顺带跳过访问检查；
+> 3. JDK9+ 可用 MethodHandle/VarHandle 替代部分反射，对 JIT 更友好。
+> ⚠️注意：反射是框架基石——Spring 扫描 @Service 后反射创建 Bean、@Autowired 反射注入、Spring MVC 反射调用 @RequestMapping 方法、MyBatis 反射映射结果集，理解反射才能看懂框架源码。
+
+### 7. 单例模式五种写法与 DCL 细节
+> 🎯【面试题】手写单例模式有哪几种写法？各有什么优缺点？
+> 参考答案：饿汉式、懒汉式、DCL 双重检查锁、静态内部类、枚举五种：
+> 1. 饿汉式：类加载即创建静态实例，靠类加载机制保证线程安全；不支持懒加载，实例一直占内存；
+> 2. 懒汉式：第一次调用才创建，实现懒加载，但多线程下会创建多个实例，线程不安全；方法上加 synchronized 的版本安全但每次获取实例都要抢锁，性能差；
+> 3. DCL 双重检查锁：两次判空 + synchronized + volatile，兼顾懒加载和性能，推荐；
+> 4. 静态内部类：第一次调用 getInstance 才加载 Holder 类，由 JVM 类加载保证线程安全，天然懒加载，代码优雅，推荐；
+> 5. 枚举：《Effective Java》最推荐，天然线程安全、绝对防止多次实例化，还能**防御反射和序列化破坏**——反射 newInstance 枚举会直接抛 IllegalArgumentException，枚举反序列化也不会生成新对象。
+> DCL 细节：`new Singleton()` 不是原子操作，分三步——分配内存、初始化对象、引用指向内存。volatile 禁止后两步指令重排，否则线程 A 执行到"引用已赋值但对象还没初始化完"时，线程 B 第一次判空非 null 直接返回，拿到**半初始化对象**。
+
+```java
+// DCL 双重检查锁
+public class Singleton {
+    private static volatile Singleton instance; // volatile 防止指令重排
+    private Singleton() {}
+    public static Singleton getInstance() {
+        if (instance == null) {                 // 第一次判空：避免不必要的加锁
+            synchronized (Singleton.class) {
+                if (instance == null) {         // 第二次判空：保证只创建一个实例
+                    instance = new Singleton();
+                }
+            }
+        }
+        return instance;
+    }
+}
+// 静态内部类
+public class Singleton2 {
+    private Singleton2() {}
+    private static class Holder {
+        private static final Singleton2 INSTANCE = new Singleton2();
+    }
+    public static Singleton2 getInstance() { return Holder.INSTANCE; }
+}
+```
+
+| 写法 | 线程安全 | 懒加载 | 防反射/序列化破坏 | 备注 |
+| ---- | ------ | ------ | ---------------- | ---- |
+| 饿汉式 | ✅ | ❌ | ❌ | 简单，必用场景 |
+| 懒汉式 | ❌ | ✅ | ❌ | 多线程不可用 |
+| DCL | ✅ | ✅ | ❌ | 注意 volatile |
+| 静态内部类 | ✅ | ✅ | ❌ | 推荐写法 |
+| 枚举 | ✅ | ❌ | ✅ | 最安全 |
+
+### 8. 责任链、策略、代理与适配器模式的区别
+> 🎯【面试题】责任链和策略模式有什么区别？代理和适配器怎么区分？
+> 参考答案：
+> **责任链模式**：多个处理器串成一条链，请求沿链传递，能处理就处理，不能就传给下一个；每个处理器持有下一个处理器的引用，发送者不关心最终谁处理。典型应用：Servlet Filter 过滤器链、Spring Security 鉴权链、Netty Pipeline、网关的多层校验。
+> **策略模式**：定义一组可互相替换的算法，客户端**选定其中一个**执行，用来消除大量 if-else；各策略平级、互不感知。典型应用：支付方式选择、促销折扣计算，ThreadPoolExecutor 的四种拒绝策略本身就是策略模式。
+> 一句话区分：策略是"横向选一个执行"；责任链是"纵向传递，可能一个处理、多个处理，甚至没人处理"。
+> **代理模式**：代理类和目标类实现**同一个接口**，不改变接口，在调用前后增加控制逻辑（日志、事务、权限、缓存、延迟加载）。Spring AOP 本质就是动态代理。
+> **适配器模式**：把一个类的接口**转换**成客户端期望的另一个接口，两边接口不同，解决"接口不兼容无法协作"的问题。典型应用：InputStreamReader 把 InputStream 字节流适配成 Reader 字符流、老系统接口改造。
+> 一句话区分：代理是"接口相同做增强"，适配器是"接口不同做转换"。
 
 ## 十一、Java 基础高频八股总复习清单

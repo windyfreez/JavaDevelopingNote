@@ -34,16 +34,22 @@ IOC/DI、Bean生命周期、AOP、事务、配置绑定、定时任务、全局�
 24. `@Transactional`声明式事务，默认什么异常才回滚？`rollbackFor`作用？
 25. `@Transactional`事务失效常见场景？
 26. Filter过滤器和Interceptor拦截器区别？完整执行顺序？
+27. Spring Bean生命周期完整流程？初始化阶段包含哪些步骤？AOP代理对象在哪个阶段生成？
 
 > 🎯【⭐⭐⭐⭐ 建议掌握】
-27. Lombok常用注解`@Data`、`@NoArgsConstructor`、`@AllArgsConstructor`注意事项？
-28. 切入点execution表达式语法规则？
-29. 什么是RESTful接口设计思想？
-30. SpringBoot条件注解`@ConditionalOnClass`、`@ConditionalOnMissingBean`作用？
-31. 定时任务实际业务使用场景？
-32. AOP适合哪些业务场景？有什么优势？
-33. yml与properties配置文件对比？
-34. 什么场景推荐使用XXL‑Job替代Spring自带@Scheduled？
+28. Lombok常用注解`@Data`、`@NoArgsConstructor`、`@AllArgsConstructor`注意事项？
+29. 切入点execution表达式语法规则？
+30. 什么是RESTful接口设计思想？
+31. SpringBoot条件注解`@ConditionalOnClass`、`@ConditionalOnMissingBean`作用？
+32. 定时任务实际业务使用场景？
+33. AOP适合哪些业务场景？有什么优势？
+34. yml与properties配置文件对比？
+35. 什么场景推荐使用XXL‑Job替代Spring自带@Scheduled？
+36. 编程式事务和声明式事务的区别？`TransactionTemplate`适用什么场景？
+37. 如何自己动手写一个Spring Boot Starter？必须注册什么文件？
+38. 如何排除某个自动配置类？`@AutoConfiguration`和`@Configuration`的区别？
+39. HandlerMapping返回的是什么？`@ResponseBody`的返回值是怎么变成JSON的？
+40. 拦截器里能注入Service吗？Filter能修改请求体吗？
 
 ---
 ### 📌 SpringBoot高频面试陷阱速记
@@ -55,6 +61,11 @@ IOC/DI、Bean生命周期、AOP、事务、配置绑定、定时任务、全局�
 6. Cron表达式中`日`和`周`不能同时指定具体值，其中一个必须写`?`。
 7. `@Data`搭配`@AllArgsConstructor`会丢失默认无参构造，框架反射实例化会报错。
 8. 切面类、定时任务类不加`@Component`交给IOC容器，注解完全不生效。
+9. 三级缓存存的是ObjectFactory工厂，本质是为了兼容AOP"非必要不提前代理"，不是为了性能。
+10. REQUIRED同事务嵌套中内层异常被catch，连接已被标记rollback-only，外层提交时抛`UnexpectedRollbackException`整体回滚。
+11. `REQUIRES_NEW`额外占用一个数据库连接，高并发下连接池耗尽；事务方法内新开子线程脱离事务（Connection绑定在ThreadLocal上）。
+12. 单例Bean只有定义了**可变成员变量**（有状态）才有线程安全问题；无状态Bean靠方法内局部变量天然安全。
+13. Controller抛异常时拦截器postHandle不执行、afterCompletion保底执行；ThreadLocal清理必须放afterCompletion，放postHandle会内存泄漏。
 
 ## 一、三层架构
 ### 1.三层架构：
@@ -266,6 +277,47 @@ private UserDao userDao = new UserDaoImpl();
 
 > 🎯【面试题】Bean的完整生命周期？
 > 参考答案：实例化 → 依赖注入 → 初始化（InitializingBean、@PostConstruct、init‑method） → 业务使用 → 销毁（DisposableBean、@PreDestroy、destroy‑method）。
+
+### 补充：Bean生命周期详解（必背，上面一题的展开版）
+上面一题是简版口述，面试官常追问"初始化阶段具体做了什么"，完整流程：
+1. **实例化**：容器根据BeanDefinition（Bean定义信息）调用构造函数或工厂方法创建对象，此时只是个空壳，属性都是默认值；
+2. **属性赋值（依赖注入）**：通过反射把依赖的Bean注入进来（处理`@Autowired`等注解）；
+3. **初始化**（最常考，顺序必背）：
+   - **Aware接口回调**：实现`BeanNameAware`、`BeanFactoryAware`等接口，把Bean名称、容器引用等信息交给Bean，让业务代码能感知容器；
+   - **BeanPostProcessor前置处理**：调用所有后置处理器的`postProcessBeforeInitialization`；
+   - **执行初始化方法**，顺序：`@PostConstruct` → `InitializingBean.afterPropertiesSet()` → `init-method`；
+   - **BeanPostProcessor后置处理**：调用`postProcessAfterInitialization`，**AOP代理对象通常就在这一步生成**（详见七、AOP章节）；
+4. **使用**：Bean准备就绪，交给业务代码使用；
+5. **销毁**：容器关闭时按顺序执行`@PreDestroy` → `DisposableBean.destroy()` → `destroy-method`。
+
+> 🎯【面试题】BeanPostProcessor和BeanFactoryPostProcessor的区别？
+> 参考答案：BeanFactoryPostProcessor在**Bean实例化之前**执行，用来修改Bean的定义信息（BeanDefinition）；BeanPostProcessor在**Bean实例化之后、初始化前后**执行，用来增强Bean实例本身。AOP的核心类`AnnotationAwareAspectJAutoProxyCreator`就是一个BeanPostProcessor。
+
+> ⚠️注意：prototype多例Bean，Spring**只负责创建、不负责销毁**，交给调用方后资源释放需要自己处理；循环依赖一般发生在**属性赋值阶段**（构造器循环依赖除外）。
+
+### 补充：循环依赖与三级缓存（大厂压轴，必背）
+
+> 🎯【面试题】三级缓存分别存什么？Spring如何解决循环依赖？
+> 参考答案：循环依赖指A依赖B、B又依赖A，不处理会陷入创建死循环。Spring用**三级缓存+提前暴露半成品**解决单例Bean属性注入场景的循环依赖：
+> 1. **一级缓存singletonObjects**：存放完全初始化好的**成品Bean**；
+> 2. **二级缓存earlySingletonObjects**：存放提前暴露的**半成品**（实例化了但没填充完属性，可能是代理对象）；
+> 3. **三级缓存singletonFactories**：存放**ObjectFactory对象工厂**，需要时才通过工厂生成早期引用（原始对象或代理对象）。
+> 解决流程（A、B互相依赖）：创建A → A实例化后先把**工厂**放进三级缓存 → A填属性发现依赖B → 创建B → B填属性发现依赖A → B从三级缓存拿到A的工厂，调用工厂得到A的早期引用并放入二级缓存 → B完成初始化进入一级缓存 → A拿到B的成品，继续完成初始化进入一级缓存。
+> 本质：**把实例化和初始化拆开，提前暴露半成品**，打破"你等我、我等你"的死锁。
+
+**高频追问：为什么必须三级缓存，二级缓存不行？**
+- 若只有二级缓存，Spring必须在**每个Bean实例化后立刻生成代理对象**放进去——哪怕绝大多数Bean根本没有循环依赖，也被迫提前做AOP判断，违背"初始化完成后才生成代理"的常规生命周期；
+- 三级缓存存的是**工厂（Lambda）**，精髓是**非必要不提前代理**：没有循环依赖时工厂永远不会被触发，A按正常流程在初始化后生成代理；一旦B真的来要A，才调用工厂"紧急提前"生成A的代理（`getEarlyBeanReference`），放入二级缓存给B；
+- A自己初始化完后，发现二级缓存里已有提前生成的代理，就把它晋升到一级缓存，并通过`earlyProxyReferences`记录避免**重复代理**。
+
+| 对比项 | 二级缓存 | 三级缓存 |
+|---|---|---|
+| 存放内容 | 半成品对象 | ObjectFactory工厂 |
+| 代理生成时机 | 只能实例化后立即生成 | 循环依赖真正发生时才触发 |
+| 设计意图 | 存储半成品 | 延迟决策：兼容AOP又不破坏生命周期 |
+
+> ⚠️注意：三级缓存不是为了性能（反而多一层工厂调用），核心是**兼容AOP+维持生命周期一致性**。局限：**prototype多例Bean循环依赖无法解决**（Spring不缓存原型Bean，直接报错）；**构造器循环依赖无法解决**（实例化阶段连三级缓存都还没来得及放），可以在构造参数上加`@Lazy`绕过。
+> 补充：循环依赖本身说明类职责划分不合理，能通过引入中间类、事件机制重构就重构，不要依赖Spring兜底。
 
 ---
 
@@ -572,6 +624,59 @@ execution(访问修饰符? 返回值类型 包名.类名.方法名(参数类型)
 | `@annotation(Log)` | 按注解匹配（注解切点更优雅，业务常用） |
 > 注意：`..`代表任意参数或任意子包；`*`代表任意返回值、任意类、任意方法；`&&`、`||`、`!`可以组合多个切点表达式。
 
+### 4.AOP代理对象是什么时候生成的？（面试高频）
+> 🎯【面试题】代理对象在Bean生命周期哪个阶段生成？由谁生成？
+> 参考答案：在**Bean初始化阶段的最后一步**，由`AnnotationAwareAspectJAutoProxyCreator`（一个BeanPostProcessor后置处理器）生成。它在`postProcessAfterInitialization`里：①找出容器中所有切面（Advisor）；②用切入点表达式判断当前Bean是否匹配；③匹配就把**原始对象"掉包"成代理对象**返回，不匹配返回原对象。所以其他类通过DI注入拿到的，已经是代理对象了。
+
+> 🎯【面试题】JDK动态代理和CGLIB怎么选？SpringBoot默认用哪个？
+> 参考答案：目标实现了接口，默认JDK动态代理（`Proxy`+`InvocationHandler`，生成实现相同接口的代理类）；没有接口用CGLIB（ASM字节码技术生成**目标类的子类**重写方法）。
+> **Spring Boot 2.x开始默认强制CGLIB**（`spring.aop.proxy-target-class=true`），因为JDK代理只能用接口类型接收注入对象，误用实现类接收会报`ClassCastException`；CGLIB代理类本身，能规避这个问题。
+
+> ⚠️注意：CGLIB无法代理`final`类和`final`方法（子类不能继承/重写）；现代JDK下两者性能差距已基本抹平，选型看"是否有接口"而不是性能。
+
+**Spring AOP 与 AspectJ 的区别（追问）**：Spring AOP是**运行时**动态代理织入，功能够用、简单无侵入；AspectJ是**编译期/类加载期**静态织入，功能更强但需要专门编译器。Spring只是借用了AspectJ的注解风格（`@Aspect`等），底层还是自己的动态代理。
+
+### 5.多个切面怎么执行？——拦截器链（责任链模式）
+> 🎯【面试题】一个方法同时匹配了日志、权限、事务多个切面，执行顺序是怎样的？
+> 参考答案：Spring不会生成一叠"多重代理"，而是把所有匹配的通知统一封装成`MethodInterceptor`，组成一条**拦截器链**放在同一个代理对象里，按**责任链模式**（洋葱模型）嵌套执行：外层拦截器前置逻辑 → 调用`invocation.proceed()`交给下一个拦截器 → …… → 链尾真正调用目标方法 → 原路返回依次执行各拦截器的后置逻辑。`proceed()`通过递归推进链条，这也解释了异常堆栈里一长串`Interceptor.invoke`。
+> - 顺序控制：切面类上加`@Order(1)`或实现`Ordered`接口，**数字越小优先级越高、越在洋葱外层**（最先进入、最后退出）；不指定则按切面类名/加载顺序；
+> - 实践：事务切面优先级一般放低（靠内层），让日志、权限在外层先执行，避免权限没通过就先开了数据库事务。
+
+### 6.代理对象路由机制：整个Bean都被代理了（自调用失效的根源）
+> 🎯【面试题】注解只打在一个方法上，为什么说整个Bean都被代理了？
+> 参考答案：注解打在方法上，但Spring的管理粒度是**Bean级别**：只要这个Bean里有**任意一个方法**被切面匹配，容器就会为**整个Bean**生成代理对象，DI注入出去的都是这个代理。调用代理对象的方法时它会"路由"：匹配切点的方法走增强流程；没匹配的方法直接**透传转发**给原始对象执行、不做增强。转发开销纳秒级，可忽略。
+
+**这解释了自调用失效的根源**：外部调用`a()`（没加注解），代理直接转发给原始对象执行；原始对象内部`this.b()`的`this`是**原始对象自己**而不是代理，所以`b()`上的注解被完全绕过。
+解决：①把方法拆到另一个类；②注入自己的代理对象再调用；③`AopContext.currentProxy()`获取当前代理（需配置`exposeProxy = true`）。
+
+### 7.单例Bean的线程安全问题（面试高频）
+> 🎯【面试题】Spring单例Bean会有线程安全问题吗？
+> 参考答案：**分情况**。单例Bean全局只有一个实例，成员变量存在堆内存，是线程共享的：
+> - **无状态Bean（推荐、也是平时的默认写法）**：类里没有可修改的成员变量，只注入其他无状态Bean，业务数据全靠方法内的**局部变量**（分配在线程私有的栈帧里）——线程安全；
+> - **有状态Bean**：定义了可变成员变量（如计数器），多线程并发修改就有竞态条件——线程不安全。
+
+```java
+@Service
+public class CounterService {
+    private int count = 0; // 有状态成员变量：count++不是原子操作（读-改-写），并发下结果必然少算
+    public int addAndGet() {
+        return ++count;
+    }
+}
+```
+
+解决（按推荐度排序）：①设计成**无状态**，数据通过方法参数传递（最佳）；②用`ThreadLocal`包装成员变量，每个线程一份副本；③改用`@Scope("prototype")`多例；④加`synchronized`锁能解决但严重损失并发性能，不推荐。
+> ⚠️注意：线程池（如Tomcat工作线程）是复用的，ThreadLocal用完必须`remove()`，否则有脏数据和内存泄漏风险。平时写Service没出过事，正是因为注入的Mapper/Service都是无状态的，业务数据都在局部变量里。
+
+### 8.反射：Spring框架能工作的基石
+> 🎯【面试题】反射在Spring里有哪些应用？
+> 参考答案：反射是Java运行时动态获取类信息、创建对象、调用方法的能力，Spring的IoC/DI/AOP/MVC全部建立在反射之上：
+> 1. **IoC创建Bean**：扫描注解拿到类全路径字符串，`Class.forName()`加载类，`constructor.newInstance()`实例化；
+> 2. **DI依赖注入**：扫描`@Autowired`标注的字段/方法，`field.setAccessible(true)`打破private封装后`field.set()`注入；
+> 3. **AOP方法增强**：JDK动态代理底层通过`method.invoke(target, args)`调用原始方法；
+> 4. **Spring MVC**：根据URL匹配到`@RequestMapping`方法后，反射解析参数类型、组装参数并调用Controller方法。
+> 追问反射性能：反射慢在安全检查、动态解析、JIT难优化，但Spring只在**启动阶段**用反射创建单例Bean，运行期都是普通对象调用，对性能影响极小。框架靠反射实现配置化和动态扩展，业务代码慎用（破坏封装）。
+
 
 ## 八、配置绑定与配置文件
 
@@ -660,6 +765,15 @@ public class GlobalExceptionHandler {
 > 3. @Async异步线程抛出的异常（异步线程不属于请求线程，需在异步方法内部处理或自定义AsyncUncaughtExceptionHandler）；
 > 4. 拦截器preHandle返回false之前抛出的异常。
 
+### 4.Spring Boot默认异常处理机制（兜底与追问）
+> 🎯【面试题】没有全局异常处理器时，Spring Boot怎么处理异常？404能被`@ExceptionHandler(Exception.class)`捕获吗？
+> 参考答案：
+> 1. 异常匹配遵循**就近原则**：Controller本类内部的`@ExceptionHandler`优先于全局`@RestControllerAdvice`；同一处理器里**精确异常类型优先**，匹配不到再沿父类向上找，最后`Exception`兜底；
+> 2. 谁都没处理时交给Spring Boot默认的`BasicErrorController`兜底：容器把请求转发到`/error`，浏览器访问（Accept: text/html）返回白页错误页面，机器访问（Accept: application/json）返回默认JSON错误信息；
+> 3. **404默认不会被@ExceptionHandler捕获**——没有匹配到Handler就不会进入Controller流程，直接走`/error`兜底；
+> 4. 多个`@RestControllerAdvice`并存时用`@Order`指定优先级，数值越小越先匹配。
+> 补充：有了全局异常处理器，Controller里一般不再写try-catch，让异常统一上抛；只有需要业务补偿（重试、回滚非事务资源）时才局部捕获。
+
 ---
 
 ## 十、声明式事务管理（@Transactional）
@@ -704,6 +818,84 @@ public class OrderService {
 **事务隔离级别**：`@Transactional(isolation = Isolation.READ_COMMITTED)`对应MySQL四种隔离级别（读未提交/读已提交/可重复读/串行化），MySQL默认RR；Spring默认使用数据库默认级别，一般不需要手动指定。
 
 > ⚠️ 常见坑：**REQUIRES_NEW与自调用**组合会失效；事务内远程调用（RPC/HTTP）超时无法回滚——远程调用结果无法回滚，应把远程调用放在事务外或采用补偿机制；事务方法内不要做耗时操作（持锁时间越长，死锁概率越高）。
+
+### 4.事务底层实现原理（必背：AOP + TransactionManager + ThreadLocal）
+> 🎯【面试题】@Transactional底层是怎么实现事务的？
+> 参考答案：三大核心组件协作：
+> 1. **AOP动态代理**：容器启动时给标了`@Transactional`的Bean生成代理对象，调用目标方法先被核心拦截器`TransactionInterceptor`拦截；
+> 2. **PlatformTransactionManager事务管理器**：真正执行开启、提交、回滚。它是接口（**策略模式**）：MyBatis/JDBC用`DataSourceTransactionManager`，JPA用`JpaTransactionManager`，Spring只定规矩不写死实现；
+> 3. **ThreadLocal连接绑定**：把数据库连接Connection绑定到当前线程，保证方法内所有DAO/Mapper用的是**同一个连接**。
+
+完整执行流程（口述版）：
+1. 代理拦截目标方法，读取事务属性（传播行为、隔离级别、rollbackFor）；
+2. 事务管理器从连接池拿一个Connection，执行`setAutoCommit(false)`关闭自动提交，并把连接**绑定到当前线程的ThreadLocal**（核心类`TransactionSynchronizationManager`）；
+3. 执行业务SQL：MyBatis/JdbcTemplate不自己去连接池拿新连接，而是先从**当前线程的ThreadLocal**里拿绑定的那个连接——方法内多个Mapper操作天然在同一个事务里；
+4. 正常返回→`connection.commit()`提交；抛异常→按rollbackFor规则判断，符合就`connection.rollback()`回滚；
+5. 最后无论成败，把连接从ThreadLocal解绑、恢复autoCommit、归还连接池。
+
+> 🎯【面试题】为什么在@Transactional方法里新开子线程执行SQL，子线程不受事务控制？
+> 参考答案：事务的Connection是**绑定在当前线程ThreadLocal**上的，子线程是全新线程、ThreadLocal为空，会去连接池拿**新连接**，完全脱离外层事务，极易数据不一致。
+
+### 5.事务失效追问：补充场景与自调用解决细节
+正文已列7大场景，面试还会追问这些细节：
+1. **为什么必须public**：事务拦截器底层会检查方法修饰符，非public直接放行、不织入事务逻辑；
+2. **final/static方法失效**：CGLIB靠生成子类重写方法织入逻辑，final方法不能被重写；static方法属于类不属于对象，无法代理；
+3. **传播行为配错**：`NOT_SUPPORTED`（以非事务执行）、`NEVER`（有事务就报错）也会表现为"事务失效"；
+4. **多线程调用失效**：子线程拿不到ThreadLocal里的事务上下文（见上一节）。
+
+**自调用失效的三种解决方案（必背）**：
+- 方案一：把事务方法**拆分到另一个Service类**，通过依赖注入调用（最推荐，顺便优化职责）；
+- 方案二：注入自己的代理对象，`@Autowired private OrderService self;` 再 `self.xxx()`；
+- 方案三：`AopContext.currentProxy()`获取当前代理（需开启`@EnableAspectJAutoProxy(exposeProxy = true)`）。
+
+### 6.传播行为底层区别与两大经典陷阱（高频追问）
+> 🎯【面试题】REQUIRED、REQUIRES_NEW、NESTED的底层物理区别？
+> 参考答案：**REQUIRED共用外层的同一个Connection**（同生共死）；**REQUIRES_NEW挂起外层事务，向连接池申请全新Connection**（各自独立提交回滚）；**NESTED共用同一个Connection，执行前打一个Savepoint保存点**（内层回滚只回滚到保存点，外层失败则全部回滚）。
+
+| 对比项 | REQUIRED | REQUIRES_NEW | NESTED |
+|---|---|---|---|
+| 数据库连接 | 共用外层的 | 新申请一个 | 共用外层的 |
+| 回滚粒度 | 整体回滚 | 内外互不影响 | 内层回滚到Savepoint |
+| 外层回滚时 | 内层跟着回滚 | 内层已提交，不受影响 | 内层跟着回滚 |
+
+> ⚠️陷阱1（UnexpectedRollbackException）：A（REQUIRED）调用B（REQUIRED），B抛异常但A把异常catch住了，A提交时会抛`UnexpectedRollbackException`并**整体回滚**。因为同用一个连接，B退出前已把连接标记为**rollback-only**，A准备提交时发现标记，强制回滚。想让B失败不影响A：把B改成`REQUIRES_NEW`（新连接不污染外层）或`NESTED`（保存点局部回滚）。
+> ⚠️陷阱2（连接池耗尽）：`REQUIRES_NEW`额外占用一个连接、外层连接还被挂起占用；高并发下所有线程都在等子方法申请新连接而连接池已空，系统假死。不要滥用REQUIRES_NEW。
+
+### 7.有事务的方法调用没事务的方法，会怎样？（高频细节题）
+> 🎯【面试题】方法A有@Transactional，内部调用的方法B没有任何事务注解，B的SQL会跟着回滚吗？
+> 参考答案：**B会"被动加入"A的事务**。原理：A开启事务后把Connection绑定到当前线程的ThreadLocal；B身上没注解，AOP不会为它做任何处理，就是个普通方法；但B里执行SQL时，持久层框架照样去**当前线程的ThreadLocal**拿连接——拿到的就是A放进去的那个。所以A和B同生共死：A回滚，B的SQL一起回滚。
+> - 即使B是**另一个Service的方法**也一样成立——事务绑定的是线程而不是类；
+> - 如果A把B抛的异常catch住，因为B没有代理干预、不会标记rollback-only，A和B已执行的SQL会**一起正常提交**（对比上一节REQUIRED嵌套的陷阱，注意区别）；
+> - 那为什么内层方法还建议写`@Transactional(propagation = Propagation.REQUIRED)`？为了语义明确和**独立调用安全**：万一哪天别人单独调用B，没注解就会以非事务自动提交方式运行，容易产生脏数据。
+
+### 8.编程式事务：TransactionTemplate（长事务救星）
+> 🎯【面试题】声明式事务和编程式事务的区别？什么场景用编程式？
+> 参考答案：
+> - **声明式**（@Transactional）：注解+AOP代理自动提交回滚，简洁无侵入；但粒度只能到方法级，整个方法都在事务里；
+> - **编程式**（TransactionTemplate）：手动包裹代码块，粒度精确到几行代码，**天然没有代理失效问题**；缺点是代码侵入。
+
+```java
+@Service
+public class UserService {
+    @Autowired
+    private TransactionTemplate transactionTemplate;
+
+    public void registerUser() {
+        String rpcResult = callSlowRemoteApi(); // 耗时远程调用放在事务外，不占用数据库连接
+        transactionTemplate.execute(status -> { // 只有核心DB操作才包进事务
+            try {
+                insertUser();
+                updateLog();
+                return true;
+            } catch (Exception e) {
+                status.setRollbackOnly(); // 手动标记回滚
+                return false;
+            }
+        });
+    }
+}
+```
+> 场景：方法里混着大量RPC/HTTP调用时，用@Transactional会让数据库连接被长时间占用（长事务→连接池耗尽、死锁风险），此时用编程式事务把远程调用挪出事务，只包裹核心DB操作。
 
 ---
 
@@ -764,6 +956,44 @@ public class OrderService {
 > `请求 → Filter.doFilter()前置逻辑 → DispatcherServlet分发 → HandlerInterceptor.preHandle() → Controller方法执行 → postHandle()（方法返回后、视图渲染前）→ afterCompletion()（整个请求完成后）→ 响应返回，执行Filter.doFilter()后置逻辑`。
 > **记忆口诀**：Filter最外层包住DispatcherServlet，Interceptor贴着Controller；多个拦截器按注册顺序执行preHandle（返回false直接中断、后续不再放行），postHandle/afterCompletion**逆序**执行。
 > ⚠️ 陷阱：Filter抛出的异常**不会被`@RestControllerAdvice`捕获**（Filter在Spring MVC之外执行），需要Filter自行try‑catch，呼应九、统一异常处理章节。
+
+### 5.拦截器三个方法的执行细节与异常表现（面试高频）
+> 🎯【面试题】preHandle、postHandle、afterCompletion各自什么时候执行？Controller抛异常后哪些还会执行？
+> 参考答案：
+> - **preHandle**：HandlerAdapter调用Controller**之前**，返回true放行、false拦截（请求直接结束，不进Controller），常做登录校验、权限、白名单；
+> - **postHandle**：Controller执行完、**视图渲染前**，可以拿到ModelAndView做修正（前后端分离场景用得少）；**Controller抛异常时不会执行**；
+> - **afterCompletion**：整个请求完成后（视图渲染完/响应写回）**保底执行**（前提是该拦截器preHandle返回了true），能拿到异常对象，用于资源清理、耗时统计、异常日志。
+
+| 方法 | 执行时机 | Controller抛异常时 |
+|---|---|---|
+| preHandle | Controller之前，可拦截请求 | 未执行的拦截器不再执行 |
+| postHandle | Controller之后、渲染视图前 | **不执行** |
+| afterCompletion | 请求完全结束后 | **仍执行**（只要preHandle放行过） |
+
+- 多个拦截器：preHandle按注册**顺序**执行，postHandle/afterCompletion按注册**逆序**执行（栈式结构，先进后出）；
+- preHandle返回false的拦截器，**自己的afterCompletion不会执行**；只有已经放行过的拦截器才有资格执行afterCompletion；
+- **ThreadLocal清理必须放afterCompletion**：放postHandle里一旦Controller抛异常就被跳过，线程池线程复用会导致脏数据甚至内存泄漏。
+
+### 6.请求处理流程补充：HandlerExecutionChain与"两个出口"
+> 🎯【面试题】HandlerMapping返回的是什么？@ResponseBody的返回值是怎么变成JSON写回去的？
+> 参考答案：
+> 1. HandlerMapping根据URL匹配Handler，返回的是**HandlerExecutionChain（处理器执行链）**：里面不仅有Controller方法，还打包了匹配到的**拦截器**，这就是拦截器能介入流程的原因；
+> 2. HandlerAdapter是**适配器模式**：Controller有多种形态（注解式、接口式等），适配器统一"怎么调用"，DispatcherServlet不用关心具体类型；
+> 3. 返回值有**两个出口**：
+>    - 方法标注@ResponseBody/@RestController：跳过视图解析，由**HttpMessageConverter**（默认Jackson）把对象序列化成JSON写入响应体——前后端分离的主流路径；
+>    - 返回视图名：走ViewResolver解析视图 → 渲染模板页面（传统服务端渲染）；
+> 4. 执行中抛异常：交给**HandlerExceptionResolver**（如ExceptionHandlerExceptionResolver）去找匹配的@ExceptionHandler处理，呼应九、统一异常处理章节。
+
+**MVC与前后端分离的演变（追问）**：M=Model（Service/DAO/实体，业务与数据）、V=View（视图）、C=Controller（接收请求、调Service、组织返回）。前后端分离后View由前端的Vue/React页面承担，后端的"视图"退化为JSON数据，Controller越来越轻：**只做参数校验、调Service、包装返回结果**，业务逻辑全部下沉Service（事务也加在Service层）。
+
+### 7.Filter与Interceptor补充追问
+> 🎯【面试题】拦截器里能注入Service吗？Filter能修改请求体吗？
+> 参考答案：
+> 1. **注入Bean**：拦截器由Spring容器管理，可以直接@Autowired注入Service；Filter由Tomcat容器管理、默认拿不到Spring的Bean（可通过`FilterRegistrationBean`把它注册成Spring Bean解决）；
+> 2. **修改请求**：Filter拿到的是最原始的Request/Response，可以通过`HttpServletRequestWrapper`包装重写`getParameter`等方法，在进Controller前统一改参数（敏感词过滤、编码设置）；拦截器只负责"要不要放行"，一般不改请求本体；
+> 3. **OncePerRequestFilter**：请求转发（forward）时Filter可能被经过多次，用它保证一次请求只过滤一次；
+> 4. **Spring Security的本质**就是一条长长的Filter过滤器链，认证授权都发生在进入DispatcherServlet之前。
+> 一句话对比：**Filter更懂HTTP（能改Request/Response本体），Interceptor更懂Spring（能拿Bean、拿HandlerMethod）**。
 
 ---
 
@@ -882,5 +1112,25 @@ public class AsyncConfig {
 > 7. 返回ApplicationContext，应用对外提供服务。
 > **自动装配原理一句话**：`@EnableAutoConfiguration`通过`@Import(AutoConfigurationImportSelector.class)`读取`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`（Spring Boot 2.7+，旧版为spring.factories）中的自动配置类列表，再用`@ConditionalOnXxx`条件注解按需装配——**引入starter依赖 → 自动配置类生效 → Bean装配进容器**。
 > 补充：BeanFactory是IOC容器的最底层接口，ApplicationContext是它的增强版（额外提供国际化、事件发布、资源加载、环境抽象），日常使用的都是ApplicationContext。
+
+### 3.自动装配追问：如何排除某个自动配置？
+> 🎯【面试题】想关掉某个自动配置类怎么做？@AutoConfiguration和@Configuration有什么区别？
+> 参考答案：
+> 1. 排除方式一：启动类上`@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})`；
+> 2. 排除方式二：配置文件里写`spring.autoconfigure.exclude=自动配置类全限定名`；
+> 3. `@AutoConfiguration`是Spring Boot专门给自动配置类用的注解，内部包含@Configuration，并保证自动配置类**在用户自定义配置类之后执行**——这样`@ConditionalOnMissingBean`才能正确判断"用户是否已经自己定义了这个Bean"，避免默认配置覆盖用户配置；
+> 4. 配置文件位置演变：Spring Boot 2.7之前读`META-INF/spring.factories`（所有扩展点混在一个文件里），2.7+/3.x改为读`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`（专为自动配置设计，结构更清晰、按需加载更快）。
+
+### 4.自定义Starter创建流程（面试高频）
+> 🎯【面试题】让你写一个自定义Starter，流程是什么？
+> 参考答案：本质是"封装业务功能 + 定义配置属性 + 自动配置类 + 注册SPI文件"，六步：
+> 1. 建Maven项目，引入`spring-boot-autoconfigure`依赖，另引`spring-boot-configuration-processor`（编译期扫描@ConfigurationProperties类生成配置元数据，让yml有IDE提示）；
+> 2. 编写核心功能类（如HelloService，普通Java类，不加@Component，由配置类@Bean注册）；
+> 3. 编写配置属性类：`@ConfigurationProperties(prefix = "hello.service")`接收yml配置；
+> 4. 编写自动配置类：`@AutoConfiguration` + `@EnableConfigurationProperties(HelloProperties.class)` + 条件注解（`@ConditionalOnClass`类存在才装配、`@ConditionalOnProperty`配置开关控制、Bean方法上加`@ConditionalOnMissingBean`允许用户自定义Bean覆盖默认配置）；
+> 5. **注册SPI（核心步骤）**：在`src/main/resources/META-INF/spring/`下创建`org.springframework.boot.autoconfigure.AutoConfiguration.imports`文件，内容写自动配置类的全限定类名；
+> 6. `mvn clean install`发布到本地/私服，其他项目引入该starter依赖、yml配置后直接@Autowired注入使用。
+
+**命名规范**：官方starter是`spring-boot-starter-xxx`（如spring-boot-starter-web）；**第三方自定义用`xxx-spring-boot-starter`**（如mybatis-spring-boot-starter），面试提一句是加分项。
 
 # 📋 SpringBoot 高频八股总复习清单
