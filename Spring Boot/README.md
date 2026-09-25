@@ -1,11 +1,10 @@
 # 📚 Springboot开发框架
 ## 前言
 
-### 学习说明
-SpringBoot基于Spring，核心是简化配置、自动装配；
-### 面试重点
-IOC/DI、Bean生命周期、AOP、事务、配置绑定、定时任务、全局异常、REST接口；不要死记代码，要能口述原理、说出坑点。
-### 以下是本文整理出的常见八股问题清单，对照复习效率翻倍
+- SpringBoot基于Spring，核心是简化配置、自动装配；IOC/DI、Bean生命周期、AOP、事务、配置绑定、定时任务、全局异常、REST接口；
+- 不要死记代码，一定要能口述原理、说出坑点。
+
+### 以下是从本文中整理出的八股复习对照清单：
 
 > 🎯【⭐⭐⭐⭐⭐ 必须掌握】
 1. 什么是三层架构？每一层职责？为什么要分层？禁止跨层调用指什么？
@@ -1132,5 +1131,3 @@ public class AsyncConfig {
 > 6. `mvn clean install`发布到本地/私服，其他项目引入该starter依赖、yml配置后直接@Autowired注入使用。
 
 **命名规范**：官方starter是`spring-boot-starter-xxx`（如spring-boot-starter-web）；**第三方自定义用`xxx-spring-boot-starter`**（如mybatis-spring-boot-starter），面试提一句是加分项。
-
-# 📋 SpringBoot 高频八股总复习清单
