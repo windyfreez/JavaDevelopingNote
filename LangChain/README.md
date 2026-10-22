@@ -523,8 +523,160 @@ for chunk in chain.stream({"lastname": "张", "gender": "女儿"}):
 
 ```
 
+### RunnableLambda
 
+chain = first_prompt | model | json_parser | second_prompt | model | str_parser
+
+前文我们根据JsonOutputParser完成了多模型执行链条的构建。
+
+- 除了JsonOutputParser这类固定功能的解析器之外
+  我们也可以自己编写Lambda匿名函数来完成自定义逻辑的数据转换，想怎么转换就怎么转换，更自由。
+
+- 想要完成这个功能，可以基于RunnableLambda类实现。
+
+RunnableLambda类是LangChain内置的，将普通函数等转换为Runnable接口实例，方便自定义函数加入chain。
+
+语法
+
+```python
+RunnableLambda(函数对象或lambda匿名函数)
+```
 
 ### 总结
 
 Chain使得大模型的”递归式“调用（上一个大模型的输出结果是下一次大模型的输入提示词）变得更加方便，同时对于WorkFlow的实现有着重大意义，仅需一个”|“即可搭建整条工作链，同时借助LangChain内置的各种解析器，结合提示词优化技术，可以更好、更方便、更清晰地搭建系统架构中的工作流。因而Chain在LangChain中的地位非凡。
+
+## Memory对话记忆
+
+### Memory临时对话记忆
+
+如果想要封装历史记录，除了自行维护历史消息外，也可借助LangChain内置的历史记录附加功能
+
+LangChain提供了History功能，帮助模型在有历史记录的情况下回答
+
+- 基于RunnableWithMessageHistory在原有链的基础上创建带有历史记录功能的新链（新Runnable实例）
+- 基于InMemoryChatMessageHistory为历史记录提供内存存储（临时用）
+
+```python
+from langchain_community.chat_models.tongyi import ChatTongyi
+from langchain_core import chat_history
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.chat_history import InMemoryChatMessageHistory
+
+model = ChatTongyi(model="qwen-max",streaming=True)
+
+# prompt = PromptTemplate.from_template(
+#     "你需要根据会话历史回应用户问题。对话历史：{chat_history}，用户提问：{input}，请回答"
+# )
+prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", "你需要根据会话历史回应用户问题，对话历史："),
+        MessagesPlaceholder("chat_history"),
+        ("human", "请回答如下问题：{input}")
+    ]
+)
+str_parser = StrOutputParser()
+
+def print_prompt(full_prompt):
+    print("="*20, full_prompt.to_string(), "="*20)
+    return full_prompt
+
+base_chain = prompt | print_prompt | model | str_parser
+
+store = {}
+def get_history(session_id):
+    if session_id not in store:
+        store[session_id] = InMemoryChatMessageHistory()
+    return store[session_id]
+
+
+# 创建一个新的链，对原有链增强功能，自动附加历史消息
+conversation_chain = RunnableWithMessageHistory(
+    base_chain,     # 被增强的原有chain
+    get_history,    # 通过会话id获取InMemoryChatMessageHistory类对象
+    input_messages_key="input",
+    history_messages_key="chat_history"
+)
+second_prompt = PromptTemplate.from_template(
+    "这是一个姓名：{name}，请帮我解析其含义"
+)
+
+if __name__ == '__main__':
+    # 固定格式，添加LangChain的配置，为当前程序配置所属的session_id
+    session_config = {
+        "configurable": {
+            "session_id": "user_001"
+        }
+    }
+
+    res = conversation_chain.invoke({"input": "小明有2个猫"}, session_config)
+    print("第1次执行：",res)
+
+    res = conversation_chain.invoke({"input": "小刚有1条狗"}, session_config)
+    print("第2次执行：", res)
+
+    res = conversation_chain.invoke({"input": "一共几个宠物"}, session_config)
+    print("第3次执行：", res)
+
+```
+
+
+
+### Memory长期对话记忆
+
+使用InMemoryChatMessageHistory仅可以在内存中临时存储会话记忆，一旦程序退出，则记忆丢失
+
+InMemoryChatMessageHistory类继承自BaseChatMessageHistory
+
+在官方的注释中给出了相关实现的指南，并给出了基于文件的历史消息存储示例代码
+
+我们可以自行实现一个基于Json格式和本地文件的会话数据保存
+
+#### FileChatMessageHistory类实现，核心思路
+
+- 基于文件存储会话记录，以`session_id`为文件名，不同`session_id`有不同的文件存储消息
+- 集成BaseChatMessageHistory实现如下三个方法
+- - `add_messages`：同步模式，添加消息
+  - `messages`：同步模式，获取消息
+  - `clear`：同步模式，清除消息
+
+```python
+import json, os
+from langchain_core.messages import messages_from_dict, message_to_dict
+
+class FileChatMessageHistory(BaseChatMessageHistory):
+    storage_path: str
+    session_id: str
+
+    @property
+    def messages(self) -> list[BaseMessage]:
+        try:
+            with open(
+                os.path.join(self.storage_path, self.session_id),
+                "r",
+                encoding="utf-8",
+            ) as f:
+                messages_data = json.load(f)
+            return messages_from_dict(messages_data)
+        except FileNotFoundError:
+            return []
+
+    def add_messages(self, messages: Sequence[BaseMessage]) -> None:
+        all_messages = list(self.messages)  # Existing messages
+        all_messages.extend(messages)       # Add new messages
+
+        serialized = [message_to_dict(message) for message in all_messages]
+        file_path = os.path.join(self.storage_path, self.session_id)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(serialized, f)
+
+    def clear(self) -> None:
+        file_path = os.path.join(self.storage_path, self.session_id)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump([], f)
+```
+
