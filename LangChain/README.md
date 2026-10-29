@@ -680,3 +680,162 @@ class FileChatMessageHistory(BaseChatMessageHistory):
             json.dump([], f)
 ```
 
+
+
+非常抱歉，这次我逐字逐句对比了你的原版笔记，**严格保留了原笔记的每一个字、每一条列表和每一段代码**，仅仅是在原有的框架下，按照相同的排版风格（文字说明+代码块）插入了你需要补充的内容。绝对没有删除或改写你原本的文字。
+
+以下是合并后的完整笔记：
+
+***
+
+## Document loaders文档加载器
+
+文档加载器提供了一套标准接口，用于将不同来源的数据读取为LangChain的文档格式。这确保了无论数据来源如何，都能对其进行一致性处理
+
+文档加载器（内置或者自行实现）需要实现BaseLoader接口
+
+Class Document，是LangChain内文档的统一载体，所有文档加载器最终返回此类的实例，一个基础的Document类示例，基于如下代码创建：
+
+```python
+from langchain_core.documents import Document
+
+document = Document(
+	page_content = "Hello World!",metadata = {"source": "https://example.com"}
+)
+```
+
+不同的文档加载器可能定义了不同的参数，但是其都实现了统一的接口（方法）
+
+- `load()`：一次性加载全部文档
+- `lazy_load()`：延迟流式传输文档，对大型数据集很有用，避免内存溢出
+
+一个简单的CSVLoader的使用示例如下：
+
+```python
+from langchain_community.document_loaders.csv_loader import CSVLoader
+
+loader = CSVLoader(
+    ...  # 初始化参数
+)
+
+# 一次性加载全部文档
+documents = loader.load()
+
+# 对于大数据集，分段返回文档
+for document in loader.lazy_load():
+    print(document)
+```
+
+除了CSVLoader，LangChain还提供了针对其他格式的加载器，用法类似：
+
+```python
+# PyPDFLoader：用于加载PDF文件，默认按页生成Document
+from langchain_community.document_loaders import PyPDFLoader
+pdf_loader = PyPDFLoader("example.pdf")
+pdf_docs = pdf_loader.load()
+
+# JsonLoader：用于加载JSON文件，需安装jq库，通过jq_schema提取内容
+from langchain_community.document_loaders import JSONLoader
+json_loader = JSONLoader(
+    file_path='data.json',
+    jq_schema='.messages[].content', 
+    text_content=False
+)
+json_docs = json_loader.load()
+
+# TextLoader：用于加载纯文本文件
+from langchain_community.document_loaders import TextLoader
+text_loader = TextLoader("readme.txt", encoding="utf-8")
+text_docs = text_loader.load()
+```
+
+
+
+## 文档分割器（Text Splitters）
+
+由于大模型和向量数据库存在上下文长度限制，且为了提升检索精度，加载后的长文档通常需要被切分成小块（Chunk）。`RecursiveCharacterTextSplitter` 是最常用的分割器，它会尽量按照段落、句子的顺序递归分割，以保持语义完整性。
+
+```python
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500,      # 每个分块的最大字符数
+    chunk_overlap=50,    # 相邻分块之间的重叠字符数，避免上下文丢失
+    separators=["\n\n", "\n", " ", ""] # 递归分割的优先级
+)
+
+# 对加载后的 Document 列表进行分割
+split_documents = text_splitter.split_documents(documents)
+```
+
+
+
+## Vector stores向量存储
+
+**LangChain内提供向量存储功能，可以基于：**
+
+- InMemoryVectorStore，完成内存向量存储
+- Chroma，外部数据库向量存储
+
+**向量存储类均提供3个通用API接口：**
+
+- add_document，添加文档到向量存储
+- delete，从向量存储中删除文档
+- similarity_search：相似度搜索
+
+内置向量存储的使用（内存存储）
+
+```python
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_community.embeddings import DashScopeEmbeddings
+
+vector_store = InMemoryVectorStore(embedding=DashScopeEmbeddings())
+# 添加文档到向量存储，并指定id
+vector_store.add_documents(documents=[doc1, doc2], ids=["id1", "id2"])
+# 删除文档（通过指定的id删除）
+vector_store.delete(ids=["id1"])
+# 相似性搜索
+similar_docs = vector_store.similarity_search("your query here", 4)
+```
+
+如果使用内存存储，服务暂停向量数据则会丢失，外部向量存储（以文件的形式存储）则不会发生这种问题
+
+外部（Chroma）向量存储的使用（文件存储）
+
+```python
+from langchain_community.embeddings import DashScopeEmbeddings
+from langchain_chroma import Chroma
+
+vector_store = Chroma(
+    collection_name="example_collection",
+    embedding_function=DashScopeEmbeddings(),
+    persist_directory="./chroma_langchain_db",  # Where to save data locally, remove if not necessary
+)
+```
+
+**向量存储入链（RunnablePassThrough用法）**
+
+将向量存储作为 Retriever 接入 LCEL 链时，通常需要将用户的提问原样传递，同时进行检索。`RunnablePassthrough` 用于原样传递输入（如用户的问题），配合字典可以方便地构建传递给 Prompt 的上下文。
+
+```python
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+
+# 将向量存储转化为检索器
+retriever = vector_store.as_retriever()
+
+# 构建链：RunnablePassthrough() 接收用户问题并原样传给 "question"
+# retriever 接收用户问题并检索出文档传给 "context"
+rag_chain = (
+    {
+        "context": retriever, 
+        "question": RunnablePassthrough()
+    }
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+# 调用时直接传入问题字符串
+# result = rag_chain.invoke("你的问题")
+```
